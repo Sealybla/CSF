@@ -1,3 +1,3 @@
 TODO: add information about contributions of team member(s)
-Currently working alone. 
-In the future will be working with Wendy Xiao. 
+Wendy Xiao and Lijia Lin
+Currently both wrote all functions and checked with each other. 
