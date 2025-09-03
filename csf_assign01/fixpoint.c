@@ -54,30 +54,167 @@ fixpoint_negate( fixpoint_t *val ) {
 result_t
 fixpoint_add( fixpoint_t *result, const fixpoint_t *left, const fixpoint_t *right ) {
   // TODO: implement
+  result_t return_val = RESULT_OK; 
+  
+  if (left -> negative == right -> negative) {
+    uint_32_t carry = 0; 
+    if (left -> frac > FIXPOINT_STR_MAX_SIZE - right -> frac) {
+      return_val = RESULT_UNDERFLOW; 
+      carry = 1; 
+    } 
+    if (left -> whole > FIXPOINT_STR_MAX_SIZE - right -> whole - carry ) {
+      return_val = RESULT_OVERFLOW; 
+    } 
+    
+    result -> negative = left -> negative; 
+    //add
+    uint_32_t w_temp = left -> whole + right -> whole + carry; 
+    uint_32_t f_temp = left -> frac + right -> frac; 
+    result -> whole = w_temp; 
+    result -> frac = f_temp; 
+  } else{ //dif signs
+    fixpoint_t* larger; 
+    fixpoint_t* smaller; 
+    int left_larger = fixpoint_compare(left, right)
+    if (left_larger == 1) {
+      larger = left; 
+      smaller = right; 
+    } else { //include == 0
+      larger = right; 
+      smaller = left; 
+    }
+    uint_32_t takeaway = 0; 
+    if (smaller -> frac > larger -> frac) {
+      takeaway = 1; 
+    }
+    uint_32_t w_temp = larger -> whole - smaller -> whole - takeaway; 
+    uint_32_t f_temp = larger -> frac - smaller -> frac; 
+    result -> whole = w_temp; 
+    result -> frac = f_temp; 
+    result -> negative = larger -> negative;
+  }
+  return return_val; 
 }
 
+// //assigns smaller and larger values
+// void
+// fixpoint_mag(const fixpoint_t *left, const fixpoint_t *right, fixpoint_t *smaller, fixpoint_t *larger) {
+//   if (left -> whole > right -> whole) {
+//     larger = left; 
+//     smaller = right; 
+//   } else if (right -> whole > left -> whole) {
+//     larger = right; 
+//     smaller = left; 
+//   } else {
+//     if (right -> frac > left -> frac) {
+//       larger = right; 
+//       smaller = left;  
+//     } else {
+//       larger = left; 
+//       smaller = right; 
+//     }
+//   }
+// }
 
 result_t
 fixpoint_sub( fixpoint_t *result, const fixpoint_t *left, const fixpoint_t *right ) {
   // TODO: implement
+  return fixpoint_add(result, left, fixpoint_negate(right));
 }
 
 result_t
 fixpoint_mul( fixpoint_t *result, const fixpoint_t *left, const fixpoint_t *right ) {
   // TODO: implement
+  result_t return_val = RESULT_OK; 
+  if (left -> negative == right -> negative) {
+    result -> negative = 0; 
+  } else {
+    result -> negative = 1; 
+  }
+  //shift whole up to "tens place"
+  u_int128_t PRS = (left -> whole)<<32 + (left -> frac) * right-> frac; 
+  u_int128_t TUV = (left -> whole)<<32 + (left -> frac) * right-> whole; 
+  u_int128_t SUM = PRS + (TUV << 32); 
+  u_int32_t left_32 = SUM >> 96; 
+  u_int32_t right_32 = SUM;
+  if (left_32 != 0) {
+    result_val = RESULT_OVERFLOW; 
+  }
+  if (right_32 != 0) {
+    return_val = RESULT_UNDERFLOW; 
+  }
+  if (right_32 != 0 && left_32 != 0) {
+    return_val = RESULT_OVERFLOW|RESULT_UNDERFLOW; 
+  }
+  u_int32_t whole_cleft =SUM >> 64; 
+  u_int32_t frac_cright = SUM >> 32; 
+  result -> whole = whole_cleft; 
+  result -> frac = whole_cright; 
+  return return_val; 
 }
 
 int
 fixpoint_compare( const fixpoint_t *left, const fixpoint_t *right ) {
   // TODO: implement
+  if (left -> whole > right -> whole) {
+    return 1; 
+  } else if (right -> whole > left -> whole) {
+    return -1; 
+  } else {
+    if (right -> frac > left -> frac) {
+      return -1;  
+    } else if (right -> frac < left -> frac){
+      return 1;  
+    } else {
+      return 0; 
+    }
+  }
 }
 
 void
 fixpoint_format_hex( fixpoint_str_t *s, const fixpoint_t *val ) {
   // TODO: implement
+  if (val -> negative) {
+    snprintf(s->str, FIXPOINT_STR_MAX_SIZE, "-%X.%08X", val->whole, val->frac);
+  } else {
+    snprintf(s->str, FIXPOINT_STR_MAX_SIZE, "%X.%08X", val->whole, val->frac);
+  }
+  char *end = s->str + strlen(s->str) - 1;
+  while (*end == 0) {
+    *end-- = '\0';
+  }
+  if (*end == '.'){
+    *end++ = '0'; 
+  }
 }
 
 bool
 fixpoint_parse_hex( fixpoint_t *val, const fixpoint_str_t *s ) {
   // TODO: implement
+  char *newstart = s->str; 
+  if ((s->str)[0] == '-') {
+    val->negative = true; 
+    newstart = s-> str + 1; 
+  } else {
+    val -> negative = false; 
+  }
+  //check invalid string:
+  //invalid chars
+  //too many digits
+  int num_before;
+  int num_after; 
+  sscanf(newstart, "%n.%n", &num_before, &num_after);
+  if (num_before > 8 || num_after > 8) {
+    return false; 
+  }
+  int len = strspn(newstart, "ABCDEF0123456789");
+  if (len != strlen(newstart)){
+    return false; 
+  }
+  //add 0's 
+
+  //turn hex into fixpoint_t 
+  sscanf(newstart, "%d.%d", val.whole, val.frac);
+  return true; 
 }
+
