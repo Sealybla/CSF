@@ -57,7 +57,7 @@ fixpoint_add( fixpoint_t *result, const fixpoint_t *left, const fixpoint_t *righ
   result_t return_val = RESULT_OK; 
   
   if (left -> negative == right -> negative) {
-    uint_32_t carry = 0; 
+    uint32_t carry = 0; 
     if (left -> frac > FIXPOINT_STR_MAX_SIZE - right -> frac) {
       return_val = RESULT_UNDERFLOW; 
       carry = 1; 
@@ -68,14 +68,14 @@ fixpoint_add( fixpoint_t *result, const fixpoint_t *left, const fixpoint_t *righ
     
     result -> negative = left -> negative; 
     //add
-    uint_32_t w_temp = left -> whole + right -> whole + carry; 
-    uint_32_t f_temp = left -> frac + right -> frac; 
+    uint32_t w_temp = left -> whole + right -> whole + carry; 
+    uint32_t f_temp = left -> frac + right -> frac; 
     result -> whole = w_temp; 
     result -> frac = f_temp; 
   } else{ //dif signs
-    fixpoint_t* larger; 
-    fixpoint_t* smaller; 
-    int left_larger = fixpoint_compare(left, right)
+    const fixpoint_t* larger; 
+    const fixpoint_t* smaller; 
+    int left_larger = fixpoint_compare(left, right);
     if (left_larger == 1) {
       larger = left; 
       smaller = right; 
@@ -83,12 +83,12 @@ fixpoint_add( fixpoint_t *result, const fixpoint_t *left, const fixpoint_t *righ
       larger = right; 
       smaller = left; 
     }
-    uint_32_t takeaway = 0; 
+    uint32_t takeaway = 0; 
     if (smaller -> frac > larger -> frac) {
       takeaway = 1; 
     }
-    uint_32_t w_temp = larger -> whole - smaller -> whole - takeaway; 
-    uint_32_t f_temp = larger -> frac - smaller -> frac; 
+    uint32_t w_temp = larger -> whole - smaller -> whole - takeaway; 
+    uint32_t f_temp = larger -> frac - smaller -> frac; 
     result -> whole = w_temp; 
     result -> frac = f_temp; 
     result -> negative = larger -> negative;
@@ -96,30 +96,12 @@ fixpoint_add( fixpoint_t *result, const fixpoint_t *left, const fixpoint_t *righ
   return return_val; 
 }
 
-// //assigns smaller and larger values
-// void
-// fixpoint_mag(const fixpoint_t *left, const fixpoint_t *right, fixpoint_t *smaller, fixpoint_t *larger) {
-//   if (left -> whole > right -> whole) {
-//     larger = left; 
-//     smaller = right; 
-//   } else if (right -> whole > left -> whole) {
-//     larger = right; 
-//     smaller = left; 
-//   } else {
-//     if (right -> frac > left -> frac) {
-//       larger = right; 
-//       smaller = left;  
-//     } else {
-//       larger = left; 
-//       smaller = right; 
-//     }
-//   }
-// }
 
 result_t
 fixpoint_sub( fixpoint_t *result, const fixpoint_t *left, const fixpoint_t *right ) {
   // TODO: implement
-  return fixpoint_add(result, left, fixpoint_negate(right));
+  fixpoint_negate((fixpoint_t *)right);
+  return fixpoint_add(result, left, right);
 }
 
 result_t
@@ -132,13 +114,13 @@ fixpoint_mul( fixpoint_t *result, const fixpoint_t *left, const fixpoint_t *righ
     result -> negative = 1; 
   }
   //shift whole up to "tens place"
-  u_int128_t PRS = (left -> whole)<<32 + (left -> frac) * right-> frac; 
-  u_int128_t TUV = (left -> whole)<<32 + (left -> frac) * right-> whole; 
-  u_int128_t SUM = PRS + (TUV << 32); 
-  u_int32_t left_32 = SUM >> 96; 
-  u_int32_t right_32 = SUM;
+  __uint128_t PRS = (((__uint128_t)left -> whole)<<32) + ((left -> frac) * right-> frac); 
+  __uint128_t TUV = (((__uint128_t)left -> whole)<<32) + ((left -> frac) * right-> whole); 
+  __uint128_t SUM = PRS + (TUV << 32); 
+  uint32_t left_32 = SUM >> 96; 
+  uint32_t right_32 = SUM;
   if (left_32 != 0) {
-    result_val = RESULT_OVERFLOW; 
+    return_val = RESULT_OVERFLOW; 
   }
   if (right_32 != 0) {
     return_val = RESULT_UNDERFLOW; 
@@ -146,10 +128,10 @@ fixpoint_mul( fixpoint_t *result, const fixpoint_t *left, const fixpoint_t *righ
   if (right_32 != 0 && left_32 != 0) {
     return_val = RESULT_OVERFLOW|RESULT_UNDERFLOW; 
   }
-  u_int32_t whole_cleft =SUM >> 64; 
-  u_int32_t frac_cright = SUM >> 32; 
+  uint32_t whole_cleft =SUM >> 64; 
+  uint32_t frac_cright = SUM >> 32; 
   result -> whole = whole_cleft; 
-  result -> frac = whole_cright; 
+  result -> frac = frac_cright; 
   return return_val; 
 }
 
@@ -214,7 +196,6 @@ fixpoint_parse_hex( fixpoint_t *val, const fixpoint_str_t *s ) {
   //add 0's 
 
   //turn hex into fixpoint_t 
-  sscanf(newstart, "%d.%d", val.whole, val.frac);
+  sscanf(newstart, "%d.%d", val->whole, val->frac);
   return true; 
 }
-
