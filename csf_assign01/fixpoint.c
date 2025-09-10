@@ -74,7 +74,6 @@ fixpoint_add( fixpoint_t *result, const fixpoint_t *left, const fixpoint_t *righ
   
   if (left -> negative == right -> negative) {
     uint64_t frac_sum = (uint64_t)left-> frac + right -> frac; 
-    uint32_t f_temp = (uint32_t)frac_sum;
     uint32_t carry = frac_sum >> 32; 
     
     uint64_t w_sum = (uint64_t)left -> whole + right -> whole + carry; 
@@ -82,7 +81,7 @@ fixpoint_add( fixpoint_t *result, const fixpoint_t *left, const fixpoint_t *righ
       return_val = RESULT_OVERFLOW; 
     }
     result -> whole =(uint32_t) w_sum; 
-    result -> frac = f_temp;
+    result -> frac = (uint32_t)frac_sum;
     result -> negative = left -> negative; 
   } else{ //dif signs
     const fixpoint_t* larger;
@@ -96,18 +95,21 @@ fixpoint_add( fixpoint_t *result, const fixpoint_t *left, const fixpoint_t *righ
       larger = right; 
       smaller = left; 
     }
-    uint32_t takeaway = 0; 
     uint32_t f_temp; 
+    uint32_t w_temp; 
     if (smaller -> frac > larger -> frac) {
-      takeaway = 1; 
       f_temp = (uint32_t)((uint64_t)larger -> frac + ((uint64_t)1<<32) - smaller -> frac); 
+      w_temp = larger -> whole - smaller -> whole - 1; 
     } else {
       f_temp = larger-> frac - smaller -> frac; 
+      w_temp = larger -> whole - smaller -> whole; 
     }
-    uint32_t w_temp = larger -> whole - smaller -> whole - takeaway; 
     result -> whole = w_temp; 
     result -> frac = f_temp; 
     result -> negative = larger -> negative;
+    if (result-> whole == 0 && result -> frac == 0) {
+      result -> negative = false; 
+    }
   }
   return return_val; 
 }
@@ -126,24 +128,30 @@ fixpoint_mul( fixpoint_t *result, const fixpoint_t *left, const fixpoint_t *righ
   // TODO: implement
   result_t return_val = RESULT_OK; 
   result -> negative = (left -> negative != right -> negative); 
-  
-  __uint128_t L = ((__uint128_t)left -> whole << 32) | left -> frac; 
-  __uint128_t R = ((__uint128_t)right -> whole << 32) | right -> frac; 
-  
-  __uint128_t mult = L* R; 
-  __uint128_t S = mult >> 32; 
-  
-  uint32_t whole = (uint32_t)(S >> 32); 
-  uint32_t frac = (uint32_t)(S & 0xFFFFFFFF);
 
-  if (mult>>96 != 0) {
+  uint64_t lw = left -> whole; 
+  uint64_t lf = left -> frac; 
+  uint64_t rw = right -> whole; 
+  uint64_t rf = right -> frac; 
+
+  uint64_t ww = lw * rw; 
+  uint64_t wf = lw * rf; 
+  uint64_t fw = lf * rw; 
+  uint64_t ff = lf * rf; 
+
+  uint32_t leftleft = (uint32_t)ff; 
+  uint64_t leftcen = (ff>>32) + (uint32_t)wf + (uint32_t)fw; 
+  uint64_t rightcen = (uint32_t)ww + (wf>>32) + (fw>>32) + (leftcen>>32); 
+
+  if (leftleft != 0) {
     return_val |= RESULT_OVERFLOW; 
   }
-  if ((mult & 0xFFFFFFFF) != 0) {
-    return_val |= RESULT_UNDERFLOW; 
+  if (rightcen > UINT32_MAX) {
+    return_val |= RESULT_OVERFLOW; 
   }
-  result -> whole = whole; 
-  result -> frac = frac; 
+  
+  result -> whole = (uint32_t)rightcen; 
+  result -> frac = (uint32_t)leftcen; 
 
   return return_val; 
 }
