@@ -222,6 +222,7 @@ fixpoint_format_hex( fixpoint_str_t *s, const fixpoint_t *val ) {
   
 }
 
+
 bool
 fixpoint_parse_hex( fixpoint_t *val, const fixpoint_str_t *s ) {
   if(val == NULL ||  s == NULL) return false;
@@ -234,25 +235,32 @@ fixpoint_parse_hex( fixpoint_t *val, const fixpoint_str_t *s ) {
   }
 
   uint32_t whole = 0;
-  uint64_t whole_test = 0;
-  char frac_process[9] = {0};
-  int test = sscanf(memo, "%x.%8[0-9a-fA-F]", &whole, frac_process);
-  sscanf(memo, "%lx.%8[0-9a-fA-F]", &whole_test, frac_process);
-  if(whole_test != whole) return false;
+  int total_chars = 0;
+  uint32_t frac = 0;
+  int test = sscanf(memo, "%8x.%8x%n", &whole, &frac, &total_chars);
+  
   if (test != 2) return false;
 
-  size_t frac_len= strlen(frac_process);
-  if(frac_len == 0) return false;
-  uint32_t frac_unit = 0;
-  int check =sscanf(frac_process, "%x", &frac_unit);
-  uint64_t frac_test = 0;
-  sscanf(frac_process, "%lx", &frac_test);
-  if(frac_test != frac_unit) return false;
-  if(check!= 1) return false;
-  uint32_t val_frac =(uint32_t) (frac_unit<<((8-frac_len)*4));
-  val-> whole = whole;
-  val -> frac = val_frac;
-  val->negative = negative && !(whole == 0 && val_frac == 0);
+  int whole_chars = 0;
+  sscanf(memo, "%8x%n", &whole, &whole_chars);
+  if(memo[whole_chars] != '.') return false;
+
+  const char* frac_ptr = memo + whole_chars + 1;
+  int frac_chars = 0;
+  sscanf(frac_ptr, "%8x%n", &frac, &frac_chars);
+
+  if(whole_chars > 8 || frac_chars > 8 || frac_chars == 0) return false;
+  if(memo + whole_chars + 1 + frac_chars != memo + strlen(memo)) return false;
+  
+  uint64_t big_whole = 0;
+  uint64_t big_frac = 0;
+  sscanf(memo, "%lx", &big_whole);
+  sscanf(frac_ptr, "%lx", &big_frac);
+  if(whole != big_whole || frac != big_frac) return false;
+  frac = frac<<((8-frac_chars)*4);
+  val -> whole = whole;
+  val-> frac= frac;
+  val-> negative = negative && !(whole && frac);
   return true;
   
 
