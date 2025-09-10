@@ -15,6 +15,9 @@ typedef struct {
   fixpoint_t one_and_one_half;
   fixpoint_t one_hundred;
   fixpoint_t neg_eleven;
+  fixpoint_t two;
+  fixpoint_t neg_two;
+  fixpoint_t half_max;
 } TestObjs;
 
 // Functions to create and destroy the text fixture
@@ -58,6 +61,8 @@ void test_compare( TestObjs *objs );
 void test_format_hex( TestObjs *objs );
 void test_parse_hex( TestObjs *objs );
 // TODO: add additional test functions
+void test_parse_hex_valid_hex(TestObjs *objs);
+void test_mul_cases(TestObjs  *objs);
 
 int main( int argc, char **argv ) {
   if ( argc > 1 )
@@ -77,6 +82,8 @@ int main( int argc, char **argv ) {
   TEST( test_format_hex );
   TEST( test_parse_hex );
   // TODO: call additional test functions
+  TEST(test_parse_hex_valid_hex);
+  TEST(test_mul_cases);
 
   TEST_FINI();
 }
@@ -93,8 +100,12 @@ TestObjs *setup( void ) {
   TEST_FIXPOINT_INIT( &objs->one_and_one_half, 1, 0x80000000, false );
   TEST_FIXPOINT_INIT( &objs->one_hundred, 100, 0, false );
   TEST_FIXPOINT_INIT( &objs->neg_eleven, 11, 0, true );
+  
 
   // TODO: initialize additional fixpoint_t instances
+  TEST_FIXPOINT_INIT( &objs->two, 2, 0, false);
+  TEST_FIXPOINT_INIT( &objs->neg_two, 2, 0, true);
+  TEST_FIXPOINT_INIT( &objs->half_max, 0x80000000, 0, false);
 
   return objs;
 }
@@ -254,7 +265,6 @@ void test_sub( TestObjs *objs ) {
   fixpoint_t neg_min = objs->min;
   fixpoint_negate( &neg_min );
   ASSERT( fixpoint_sub( &result, &neg_min, &objs->max ) == RESULT_OVERFLOW );
-  
 }
 
 void test_mul( TestObjs *objs ) {
@@ -361,3 +371,33 @@ void test_parse_hex( TestObjs *objs ) {
 }
 
 // TODO: define additional test functions
+
+
+void test_parse_hex_valid_hex(TestObjs *objs) {
+  fixpoint_t val;
+  ASSERT( false == fixpoint_parse_hex( &val, FIXPOINT_STR( "-z.0" ) ) );
+  ASSERT( false == fixpoint_parse_hex( &val, FIXPOINT_STR( "-0.z" ) ) );
+  ASSERT( false == fixpoint_parse_hex( &val, FIXPOINT_STR( "--.0" ) ) );
+  ASSERT( false == fixpoint_parse_hex( &val, FIXPOINT_STR( "-zzzz" ) ) );
+  ASSERT( false == fixpoint_parse_hex( &val, FIXPOINT_STR( "-z.z" ) ) );
+  ASSERT( false == fixpoint_parse_hex( &val, FIXPOINT_STR( "hello world" ) ) );
+  ASSERT( false == fixpoint_parse_hex( &val, FIXPOINT_STR( "-100000000.0" ) ) );
+  ASSERT( false == fixpoint_parse_hex( &val, FIXPOINT_STR( "-1000000.0000000000" ) ) );
+  ASSERT( false == fixpoint_parse_hex( &val, FIXPOINT_STR( "-1000000.0000abcstyuikm" ) ) );
+
+}
+
+void test_mul_cases(TestObjs *objs) {
+
+  fixpoint_t result;
+
+  ASSERT( fixpoint_mul( &result, &objs->half_max, &objs->two ) == RESULT_OVERFLOW );
+  ASSERT( 0 == result.whole );
+  ASSERT( 0 == result.frac );
+  ASSERT( false == result.negative );
+
+  ASSERT( fixpoint_mul( &result, &objs->half_max, &objs->neg_two ) == RESULT_OVERFLOW );
+  ASSERT( 0 == result.whole );
+  ASSERT( 0 == result.frac );
+  ASSERT( true == result.negative );
+}
