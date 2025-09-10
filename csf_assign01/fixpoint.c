@@ -150,67 +150,110 @@ fixpoint_mul( fixpoint_t *result, const fixpoint_t *left, const fixpoint_t *righ
 
 int
 fixpoint_compare( const fixpoint_t *left, const fixpoint_t *right ) {
-  // TODO: implement
-  bool return_val = 0; 
-  if(left -> negative == right -> negative) {
-    return_val = fixpoint_compare_mag(left, right); 
-    if (left -> negative == true) {
-      return_val = -return_val; 
-    }
-  }else{
-    if (left -> negative) {
-      return_val = -1; 
+  if (left -> negative && right -> negative) {
+    if (left -> whole < right -> whole) {
+      return 1;
+    } else if (left -> whole > right -> whole) {
+      return -1;
     } else {
-      return_val = 1; 
+      if (left -> frac < right -> frac) {
+        return 1;
+      } else if (left -> frac > right -> frac) {
+        return -1;
+      } else {
+        return 0;
+      }
     }
+  } else if (!(left -> negative) && !(right -> negative)) {
+    if (left -> whole > right -> whole) {
+      return 1;
+    } else if (left -> whole < right -> whole) {
+      return -1;
+    } else {
+      if (left -> frac > right -> frac) {
+        return 1;
+      } else if (left -> frac < right -> frac) {
+        return -1;
+      } else {
+        return 0;
+      }
+    }
+  } else{
+    return (right -> negative) ? 1 : -1;
   }
-return return_val; 
-  
+}
+
+void u32_to_hex(char *buf, uint32_t v) {
+  const char *hex = "0123456789abcdef";
+  for(int i = 0; i < 8; ++i) {
+    int shift = (7-i)*4;
+    buf[i] = hex[(v>>shift) & 0xF];
+  }
+  buf[8] = '\0';
 }
 
 void
 fixpoint_format_hex( fixpoint_str_t *s, const fixpoint_t *val ) {
-  // TODO: implement
-  if (val -> negative) {
-    snprintf(s->str, FIXPOINT_STR_MAX_SIZE, "-%X.%08X", val->whole, val->frac);
+  char val_whole[9];
+  if(val->whole == 0) {
+    strcpy(val_whole, "0");
   } else {
-    snprintf(s->str, FIXPOINT_STR_MAX_SIZE, "%X.%08X", val->whole, val->frac);
+    snprintf(val_whole, sizeof val_whole, "%x", (unsigned) val-> whole);
   }
-  char *end = s->str + strlen(s->str) - 1;
-  while (*end == 0) {
-    *end-- = '\0';
+
+  char val_frac[9];
+  
+  if(val -> frac == 0) {
+    strcpy(val_frac, "0");
+  } else {
+    char frac_process[9];
+    u32_to_hex(frac_process, val -> frac);
+    int len = 7;
+    while(len >= 0 && frac_process[len] == '0') len--;
+    memcpy(val_frac, frac_process, len + 1);
+    val_frac[len+1] = '\0';
   }
-  if (*end == '.'){
-    *end++ = '0'; 
+
+  if( val-> negative && !(val-> whole == 0 && val -> frac== 0)) {
+    snprintf(s->str, sizeof s->str, "-%s.%s", val_whole, val_frac);
+  } else {
+    snprintf(s->str, sizeof s->str, "%s.%s", val_whole, val_frac);
   }
+  
 }
 
 bool
 fixpoint_parse_hex( fixpoint_t *val, const fixpoint_str_t *s ) {
-  // TODO: implement
-  char *newstart = s->str; 
-  if ((s->str)[0] == '-') {
-    val->negative = true; 
-    newstart = s-> str + 1; 
-  } else {
-    val -> negative = false; 
+  if(val == NULL ||  s == NULL) return false;
+  const char *memo = s->str;
+  if(*memo == '\0') return false;
+  bool negative = false;
+  if(*memo == '-') {
+    negative = true;
+    memo++;
   }
-  //check invalid string:
-  //invalid chars
-  //too many digits
-  int num_before;
-  int num_after; 
-  sscanf(newstart, "%n.%n", &num_before, &num_after);
-  if (num_before > 8 || num_after > 8) {
-    return false; 
-  }
-  int len = strspn(newstart, "ABCDEF0123456789");
-  if (len != strlen(newstart)){
-    return false; 
-  }
-  //add 0's 
 
-  //turn hex into fixpoint_t 
-  sscanf(newstart, "%d.%d", val->whole, val->frac);
-  return true; 
+  uint32_t whole = 0;
+  uint64_t whole_test = 0;
+  char frac_process[9] = {0};
+  int test = sscanf(memo, "%x.%8[0-9a-fA-F]", &whole, frac_process);
+  sscanf(memo, "%lx.%8[0-9a-fA-F]", &whole_test, frac_process);
+  if(whole_test != whole) return false;
+  if (test != 2) return false;
+
+  size_t frac_len= strlen(frac_process);
+  if(frac_len == 0) return false;
+  uint32_t frac_unit = 0;
+  int check =sscanf(frac_process, "%x", &frac_unit);
+  uint64_t frac_test = 0;
+  sscanf(frac_process, "%lx", &frac_test);
+  if(frac_test != frac_unit) return false;
+  if(check!= 1) return false;
+  uint32_t val_frac =(uint32_t) (frac_unit<<((8-frac_len)*4));
+  val-> whole = whole;
+  val -> frac = val_frac;
+  val->negative = negative && !(whole == 0 && val_frac == 0);
+  return true;
+  
+
 }
