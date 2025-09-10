@@ -254,6 +254,7 @@ void test_sub( TestObjs *objs ) {
   fixpoint_t neg_min = objs->min;
   fixpoint_negate( &neg_min );
   ASSERT( fixpoint_sub( &result, &neg_min, &objs->max ) == RESULT_OVERFLOW );
+  
 }
 
 void test_mul( TestObjs *objs ) {

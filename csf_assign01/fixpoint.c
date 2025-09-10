@@ -51,31 +51,44 @@ fixpoint_negate( fixpoint_t *val ) {
   }
 }
 
+int fixpoint_compare_mag(const fixpoint_t *left, const fixpoint_t *right) {
+  if (left -> whole > right -> whole) {
+        return 1; 
+    } else if (right -> whole > left -> whole) {
+        return -1; 
+    } else {
+      if (right -> frac > left -> frac) {
+        return -1;  
+      } else if (right -> frac < left -> frac){
+        return 1;  
+      } else {
+        return 0; 
+      }
+    }
+}
+
 result_t
 fixpoint_add( fixpoint_t *result, const fixpoint_t *left, const fixpoint_t *right ) {
   // TODO: implement
   result_t return_val = RESULT_OK; 
   
   if (left -> negative == right -> negative) {
-    uint32_t carry = 0; 
-    if (left -> frac > FIXPOINT_STR_MAX_SIZE - right -> frac) {
-      return_val = RESULT_UNDERFLOW; 
-      carry = 1; 
-    } 
-    if (left -> whole > FIXPOINT_STR_MAX_SIZE - right -> whole - carry ) {
-      return_val = RESULT_OVERFLOW; 
-    } 
+    uint64_t frac_sum = (uint64_t)left-> frac + right -> frac; 
+    uint32_t f_temp = (uint32_t)frac_sum;
+    uint32_t carry = frac_sum >> 32; 
     
+    uint64_t w_sum = (uint64_t)left -> whole + right -> whole + carry; 
+    if (w_sum > UINT32_MAX) {
+      return_val = RESULT_OVERFLOW; 
+    }
+    result -> whole =(uint32_t) w_sum; 
+    result -> frac = f_temp;
     result -> negative = left -> negative; 
-    //add
-    uint32_t w_temp = left -> whole + right -> whole + carry; 
-    uint32_t f_temp = left -> frac + right -> frac; 
-    result -> whole = w_temp; 
-    result -> frac = f_temp; 
   } else{ //dif signs
-    const fixpoint_t* larger; 
+    const fixpoint_t* larger;
     const fixpoint_t* smaller; 
-    int left_larger = fixpoint_compare(left, right);
+    int left_larger; 
+    left_larger = fixpoint_compare_mag(left, right);
     if (left_larger == 1) {
       larger = left; 
       smaller = right; 
@@ -84,11 +97,14 @@ fixpoint_add( fixpoint_t *result, const fixpoint_t *left, const fixpoint_t *righ
       smaller = left; 
     }
     uint32_t takeaway = 0; 
+    uint32_t f_temp; 
     if (smaller -> frac > larger -> frac) {
       takeaway = 1; 
+      f_temp = (uint32_t)((uint64_t)larger -> frac + ((uint64_t)1<<32) - smaller -> frac); 
+    } else {
+      f_temp = larger-> frac - smaller -> frac; 
     }
     uint32_t w_temp = larger -> whole - smaller -> whole - takeaway; 
-    uint32_t f_temp = larger -> frac - smaller -> frac; 
     result -> whole = w_temp; 
     result -> frac = f_temp; 
     result -> negative = larger -> negative;
@@ -100,57 +116,56 @@ fixpoint_add( fixpoint_t *result, const fixpoint_t *left, const fixpoint_t *righ
 result_t
 fixpoint_sub( fixpoint_t *result, const fixpoint_t *left, const fixpoint_t *right ) {
   // TODO: implement
-  fixpoint_negate((fixpoint_t *)right);
-  return fixpoint_add(result, left, right);
+  fixpoint_t neg_right = *right; 
+  fixpoint_negate(&neg_right); 
+  return fixpoint_add(result, left, &neg_right);
 }
 
 result_t
 fixpoint_mul( fixpoint_t *result, const fixpoint_t *left, const fixpoint_t *right ) {
   // TODO: implement
   result_t return_val = RESULT_OK; 
-  if (left -> negative == right -> negative) {
-    result -> negative = 0; 
-  } else {
-    result -> negative = 1; 
+  result -> negative = (left -> negative != right -> negative); 
+  
+  __uint128_t L = ((__uint128_t)left -> whole << 32) | left -> frac; 
+  __uint128_t R = ((__uint128_t)right -> whole << 32) | right -> frac; 
+  
+  __uint128_t mult = L* R; 
+  __uint128_t S = mult >> 32; 
+  
+  uint32_t whole = (uint32_t)(S >> 32); 
+  uint32_t frac = (uint32_t)(S & 0xFFFFFFFF);
+
+  if (mult>>96 != 0) {
+    return_val |= RESULT_OVERFLOW; 
   }
-  //shift whole up to "tens place"
-  __uint128_t PRS = (((__uint128_t)left -> whole)<<32) + ((left -> frac) * right-> frac); 
-  __uint128_t TUV = (((__uint128_t)left -> whole)<<32) + ((left -> frac) * right-> whole); 
-  __uint128_t SUM = PRS + (TUV << 32); 
-  uint32_t left_32 = SUM >> 96; 
-  uint32_t right_32 = SUM;
-  if (left_32 != 0) {
-    return_val = RESULT_OVERFLOW; 
+  if ((mult & 0xFFFFFFFF) != 0) {
+    return_val |= RESULT_UNDERFLOW; 
   }
-  if (right_32 != 0) {
-    return_val = RESULT_UNDERFLOW; 
-  }
-  if (right_32 != 0 && left_32 != 0) {
-    return_val = RESULT_OVERFLOW|RESULT_UNDERFLOW; 
-  }
-  uint32_t whole_cleft =SUM >> 64; 
-  uint32_t frac_cright = SUM >> 32; 
-  result -> whole = whole_cleft; 
-  result -> frac = frac_cright; 
+  result -> whole = whole; 
+  result -> frac = frac; 
+
   return return_val; 
 }
 
 int
 fixpoint_compare( const fixpoint_t *left, const fixpoint_t *right ) {
   // TODO: implement
-  if (left -> whole > right -> whole) {
-    return 1; 
-  } else if (right -> whole > left -> whole) {
-    return -1; 
-  } else {
-    if (right -> frac > left -> frac) {
-      return -1;  
-    } else if (right -> frac < left -> frac){
-      return 1;  
+  bool return_val = 0; 
+  if(left -> negative == right -> negative) {
+    return_val = fixpoint_compare_mag(left, right); 
+    if (left -> negative == true) {
+      return_val = -return_val; 
+    }
+  }else{
+    if (left -> negative) {
+      return_val = -1; 
     } else {
-      return 0; 
+      return_val = 1; 
     }
   }
+return return_val; 
+  
 }
 
 void
