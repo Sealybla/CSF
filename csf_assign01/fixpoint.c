@@ -123,6 +123,10 @@ fixpoint_sub( fixpoint_t *result, const fixpoint_t *left, const fixpoint_t *righ
   return fixpoint_add(result, left, &neg_right);
 }
 
+bool iszero(const fixpoint_t *val) {
+  return (val -> whole == 0 && val -> frac == 0); 
+}
+
 
 result_t
 fixpoint_mul( fixpoint_t *result, const fixpoint_t *left, const fixpoint_t *right ) {
@@ -135,8 +139,6 @@ fixpoint_mul( fixpoint_t *result, const fixpoint_t *left, const fixpoint_t *righ
   uint64_t frac_frac = (uint64_t)left -> frac * right -> frac;
   
   uint64_t whole_whole = (uint64_t)left -> whole * right -> whole;
-  //printf("left:%u, right:%u \n", left ->whole, right ->whole);
-  //printf("wholeval%lu \n", whole_whole);
   
 
   uint64_t left_whole_right_frac = ( uint64_t)left -> whole * right -> frac;
@@ -151,9 +153,7 @@ fixpoint_mul( fixpoint_t *result, const fixpoint_t *left, const fixpoint_t *righ
 
   result -> whole = small_whole;
   result -> frac = small_frac;
-  //printf("frac: %u \n", small_frac);
-  //printf("fracw: %u \n", small_whole);
-  //printf("fracwl: %lu \n", temp_whole);
+
   result -> negative = (left -> negative == right -> negative) ? false : true;
 
   if ((frac_frac & 0xFFFFFFFF) != 0 && temp_whole > small_whole) {

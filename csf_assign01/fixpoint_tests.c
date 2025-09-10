@@ -401,3 +401,131 @@ void test_mul_cases(TestObjs *objs) {
   ASSERT( 0 == result.frac );
   ASSERT( true == result.negative );
 }
+
+void test_add_cases(TestObjs *objs) {
+    // carrying
+  fixpoint_t result;
+  ASSERT(fixpoint_add(&result, &objs->one_half, &objs->one_and_one_half) == RESULT_OK);
+  ASSERT(2 == result.whole);
+  ASSERT(0 == result.frac);
+  ASSERT(false == result.negative);
+
+  // two negatives
+  fixpoint_t neg_one_half = objs->one_half;
+  fixpoint_t neg_one_and_one_half = objs->one_and_one_half;
+  fixpoint_negate(&neg_one_half);
+  fixpoint_negate(&neg_one_and_one_half);
+  ASSERT(fixpoint_add(&result, &neg_one_half, &neg_one_and_one_half) == RESULT_OK);
+  ASSERT(2 == result.whole);
+  ASSERT(0 == result.frac);
+  ASSERT(true == result.negative);
+
+  // same number, one pos one neg
+  ASSERT(fixpoint_add(&result, &objs->one_and_one_half, &neg_one_and_one_half) == RESULT_OK);
+  ASSERT(0 == result.whole);
+  ASSERT(0 == result.frac);
+  ASSERT(false == result.negative);
+
+  // almost overflow
+  ASSERT(fixpoint_add(&result, &objs->max, &neg_one_and_one_half) == RESULT_OK);
+
+  // overflow positive
+  ASSERT(fixpoint_add(&result, &objs->max, &objs->one) == RESULT_OVERFLOW);
+
+  // almost negative
+  fixpoint_t neg_max = objs->max;
+  fixpoint_negate(&neg_max);
+  ASSERT(fixpoint_add(&result, &neg_max, &objs->one) == RESULT_OK);
+
+  // still in range
+  ASSERT(fixpoint_add(&result, &neg_max, &neg_one_half) == RESULT_OK);
+
+  // identity
+  ASSERT(fixpoint_add(&result, &objs->zero, &objs->max) == RESULT_OK);
+  ASSERT(result.whole == objs->max.whole);
+  ASSERT(result.frac == objs->max.frac);
+  ASSERT(result.negative == objs->max.negative);
+}
+
+void test_subtract_cases(TestObjs *objs) {
+  fixpoint_t result;
+
+  // simple: 2 - 1 = 1
+  ASSERT(fixpoint_sub(&result, &objs->two, &objs->one) == RESULT_OK);
+  ASSERT(result.whole == 1);
+  ASSERT(result.frac == 0);
+  ASSERT(result.negative == false);
+
+  // subtract negative
+  ASSERT(fixpoint_sub(&result, &objs->one, &objs->neg_two) == RESULT_OK);
+  ASSERT(result.whole == 3);
+  ASSERT(result.frac == 0);
+  ASSERT(result.negative == false);
+
+  // subtract positive from smaller
+  ASSERT(fixpoint_sub(&result, &objs->one, &objs->two) == RESULT_OK);
+  ASSERT(result.whole == 1);
+  ASSERT(result.frac == 0);
+  ASSERT(result.negative == true);
+
+  // near overflow: max - (-1) = overflow
+  fixpoint_t neg_one = objs->one;
+  fixpoint_negate(&neg_one);
+  ASSERT(fixpoint_sub(&result, &objs->max, &neg_one) == RESULT_OVERFLOW);
+
+  // near underflow: (-max) - 1 = overflow
+  fixpoint_t neg_max = objs->max;
+  fixpoint_negate(&neg_max);
+  ASSERT(fixpoint_sub(&result, &neg_max, &objs->one) == RESULT_OVERFLOW);
+}
+
+void test_compare_cases(TestObjs *objs) {
+  // equal values
+  ASSERT(fixpoint_compare(&objs->two, &objs->two) == 0);
+
+  // larger vs smaller (positive)
+  ASSERT(fixpoint_compare(&objs->two, &objs->one) > 0);
+  ASSERT(fixpoint_compare(&objs->one, &objs->two) < 0);
+
+  // positive vs negative
+  ASSERT(fixpoint_compare(&objs->two, &objs->neg_two) > 0);
+  ASSERT(fixpoint_compare(&objs->neg_two, &objs->two) < 0);
+
+  // fractional comparison
+  ASSERT(fixpoint_compare(&objs->one_and_one_half, &objs->one) > 0);
+
+  // fractional comparison:
+  ASSERT(fixpoint_compare(&objs->one_half, &objs->neg_three_eighths) > 0);
+
+  // zero vs positive/negative
+  ASSERT(fixpoint_compare(&objs->zero, &objs->one) < 0);
+  ASSERT(fixpoint_compare(&objs->zero, &objs->neg_two) > 0);
+}
+
+void test_format_hex_cases(TestObjs *objs) {
+  fixpoint_str_t s;
+
+  // two-digit w
+  fixpoint_format_hex(&s, &objs->one_hundred);
+  ASSERT(0 == strcmp("64.0", s.str));
+
+  // small negative fraction
+  fixpoint_format_hex(&s, &objs->neg_three_eighths);
+  ASSERT(0 == strcmp("-0.6", s.str));
+
+  //large positive
+  fixpoint_format_hex(&s, &objs->max);
+  ASSERT(0 == strcmp("ffffffff.ffffffff", s.str));
+
+  //large negative
+  fixpoint_t neg_max = objs->max;
+  fixpoint_negate(&neg_max);
+  fixpoint_format_hex(&s, &neg_max);
+  ASSERT(0 == strcmp("-ffffffff.ffffffff", s.str));
+
+  // identity
+  fixpoint_format_hex(&s, &objs->zero);
+  ASSERT(0 == strcmp("0.0", s.str));
+}
+
+
