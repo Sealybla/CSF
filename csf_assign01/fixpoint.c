@@ -123,38 +123,49 @@ fixpoint_sub( fixpoint_t *result, const fixpoint_t *left, const fixpoint_t *righ
   return fixpoint_add(result, left, &neg_right);
 }
 
+
 result_t
 fixpoint_mul( fixpoint_t *result, const fixpoint_t *left, const fixpoint_t *right ) {
-  // TODO: implement
-  result_t return_val = RESULT_OK; 
-  result -> negative = (left -> negative != right -> negative); 
-
-  uint64_t lw = left -> whole; 
-  uint64_t lf = left -> frac; 
-  uint64_t rw = right -> whole; 
-  uint64_t rf = right -> frac; 
-
-  uint64_t ww = lw * rw; 
-  uint64_t wf = lw * rf; 
-  uint64_t fw = lf * rw; 
-  uint64_t ff = lf * rf; 
-
-  uint32_t leftleft = (uint32_t)ff; 
-  uint64_t leftcen = (ff>>32) + (uint32_t)wf + (uint32_t)fw; 
-  uint64_t rightcen = (uint32_t)ww + (wf>>32) + (fw>>32) + (leftcen>>32); 
-
-  if (leftleft != 0) {
-    return_val |= RESULT_OVERFLOW; 
+  if(iszero(left) || iszero(right)) {
+    result -> whole = 0;
+    result -> frac = 0;
+    result -> negative = false;
+    return RESULT_OK;
   }
-  if (rightcen > UINT32_MAX) {
-    return_val |= RESULT_OVERFLOW; 
-  }
+  uint64_t frac_frac = (uint64_t)left -> frac * right -> frac;
   
-  result -> whole = (uint32_t)rightcen; 
-  result -> frac = (uint32_t)leftcen; 
+  uint64_t whole_whole = (uint64_t)left -> whole * right -> whole;
+  //printf("left:%u, right:%u \n", left ->whole, right ->whole);
+  //printf("wholeval%lu \n", whole_whole);
+  
 
-  return return_val; 
+  uint64_t left_whole_right_frac = ( uint64_t)left -> whole * right -> frac;
+  uint64_t right_whole_left_frac = ( uint64_t)right -> whole * left -> frac;
+
+  uint64_t temp_frac = (left_whole_right_frac) + (right_whole_left_frac) + (frac_frac >> 32);
+  uint64_t temp_whole = whole_whole + (temp_frac >> 32);
+
+  uint32_t small_frac = (uint32_t) temp_frac;
+  uint32_t small_whole = (uint32_t) temp_whole;
+
+
+  result -> whole = small_whole;
+  result -> frac = small_frac;
+  //printf("frac: %u \n", small_frac);
+  //printf("fracw: %u \n", small_whole);
+  //printf("fracwl: %lu \n", temp_whole);
+  result -> negative = (left -> negative == right -> negative) ? false : true;
+
+  if ((frac_frac & 0xFFFFFFFF) != 0 && temp_whole > small_whole) {
+    return (RESULT_OVERFLOW|RESULT_UNDERFLOW);
+  } else if ((frac_frac & 0xFFFFFFFF) != 0) {
+    return RESULT_UNDERFLOW;
+  } else if (temp_whole > small_whole) {
+    return RESULT_OVERFLOW;
+  }
+  return RESULT_OK;
 }
+
 
 int
 fixpoint_compare( const fixpoint_t *left, const fixpoint_t *right ) {
