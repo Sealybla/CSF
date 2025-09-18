@@ -17,6 +17,24 @@
 //!                   transformed pixels should be stored)
 void imgproc_complement( struct Image *input_img, struct Image *output_img ) {
   // TODO: implement
+  assert( input_img->width == output_img->width );
+  assert( input_img->height == output_img->height );
+  int32_t w = input_img->width;
+  int32_t h = input_img->height;
+  for ( int32_t y = 0; y < h; ++y ) {
+    for ( int32_t x = 0; x < w; ++x ) {
+      int index = y*w + x;
+      uint32_t pixel = input_img->data[ index ];
+      uint32_t newpixel;
+      //RGBA format
+      uint8_t r = ~((pixel >> 24) & 0xFF);
+      uint8_t g = ~(pixel >> 16) & 0xFF;
+      uint8_t b = ~(pixel >> 8);
+      uint8_t a = pixel & 0xFF;
+      newpixel = (r << 24) + (g << 16) + (b << 8) + a;
+      output_img->data[index] = newpixel; 
+    }
+  }
 }
 
 //! Transform the input image by swapping the row and column
