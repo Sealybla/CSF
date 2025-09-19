@@ -29,9 +29,9 @@ void imgproc_complement( struct Image *input_img, struct Image *output_img ) {
       //RGBA format
       uint8_t r = ~((pixel >> 24) & 0xFF);
       uint8_t g = ~(pixel >> 16) & 0xFF;
-      uint8_t b = ~(pixel >> 8);
+      uint8_t b = ~((pixel >> 8)& 0xFF);
       uint8_t a = pixel & 0xFF;
-      newpixel = ((uint32_t)r << 24) + ((uint32_t)g << 16) + ((uint32_t)b << 8) + a;
+      newpixel = ((uint32_t)r << 24) | ((uint32_t)g << 16) | ((uint32_t)b << 8) | a;
       output_img->data[index] = newpixel; 
     }
   }
@@ -131,10 +131,10 @@ void imgproc_emboss( struct Image *input_img, struct Image *output_img ) {
     output_img -> data[input_img->width * r_elem] = out_data_c; 
   }
   //set not top/left
-  for(uint32_t r = 1; r< input_img->width; r ++) {
-    for (uint32_t c = 1; c < input_img -> height; c++) {
-      uint32_t index = r * input_img -> width + c; 
-      uint32_t n_index = (r-1) * input_img -> width + (c-1); 
+  for(uint32_t row = 1; row< input_img->height; row ++) {
+    for (uint32_t col = 1; col < input_img -> width; col++) {
+      uint32_t index = row * input_img -> width + col; 
+      uint32_t n_index = (row-1) * input_img -> width + (col-1); 
       uint32_t pixel = input_img -> data[index]; 
       uint32_t n_pixel = input_img -> data[n_index]; 
       uint8_t nr = (n_pixel>>24)&0xFF; 
@@ -148,27 +148,30 @@ void imgproc_emboss( struct Image *input_img, struct Image *output_img ) {
       uint8_t nrr = abs_diff(nr, r); 
       uint8_t ngg = abs_diff(ng, g); 
       uint8_t nbb = abs_diff(nb, b); 
-      uint8_t diff; 
+      int diff; 
       if (nrr >= ngg) {
         if (nrr >= nbb) {
-          diff = nrr; 
+          diff = nr - r; 
         } else {
-          diff = nbb; 
+          diff = nb - b; 
         }
       } else{
         if (ngg >= nbb) {
-          diff = ngg; 
+          diff = ng - g; 
         } else{
-          diff = nbb; 
+          diff = nb - b; 
         }
       }
       //compute gray = 128 + diff (negative -> 0, too big -> 255)
       //note: can't be neg
-      uint32_t gray = 128 + diff;
-      if (gray > 255) {
-        gray = 255; 
+      int temp_gray = 128 + diff;
+      if (temp_gray> 255) {
+        temp_gray = 255; 
+      } else if (temp_gray < 0){
+        temp_gray = 0; 
       }
-      uint32_t out_data = (gray<<24) + (gray<<16) + (gray<<8) + (uint32_t) a; 
+      uint32_t gray = temp_gray; 
+      uint32_t out_data = (gray<<24) | (gray<<16) | (gray<<8) | (uint32_t) a; 
       output_img ->data[index] = out_data; 
     }
   }
