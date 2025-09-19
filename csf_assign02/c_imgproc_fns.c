@@ -129,7 +129,26 @@ int imgproc_transpose( struct Image *input_img, struct Image *output_img ) {
 //! @param output_img pointer to the output Image (in which the
 //!                   transformed pixels should be stored)
 void imgproc_ellipse( struct Image *input_img, struct Image *output_img ) {
-  // TODO: implement
+  assert( input_img->width == output_img->width );
+  assert( input_img->height == output_img->height );
+  int32_t w = input_img->width;
+  int32_t h = input_img->height;
+  uint32_t a = w / 2;
+  uint32_t b = h / 2;
+  for (int y = 0; y < h; y ++) {
+    for (int x = 0; x < w; x++) {
+      uint32_t x1 = (x > a) ? x - a : a - x;
+      uint32_t y1 = (y > b) ? y - b : b - y;
+      if ( (10000*x1*x1) / (a*a)  +  (10000*y1*y1) / (b*b)  <= 10000) {
+        output_img->data[y * w + x] = input_img ->data[y * w + x];
+      } else {
+        output_img->data[y * w + x] = 0x000000FFU;
+      }
+    }
+  }
+  
+
+
 }
 
 
