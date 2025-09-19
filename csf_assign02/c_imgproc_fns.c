@@ -6,6 +6,47 @@
 
 // TODO: define your helper functions here
 
+
+uint8_t get_r(uint32_t pixel) {
+  return (pixel >> 24) & 0xFF; 
+}
+
+uint8_t get_g(uint32_t pixel) {
+  return (pixel >> 16) & 0xFF; 
+}
+
+uint8_t get_b(uint32_t pixel) {
+  return (pixel >> 8) & 0xFF; 
+}
+
+uint8_t abs_diff(uint8_t a, uint8_t b){
+  if (a > b) {
+    return a - b; 
+  } else{
+    return b - a; 
+  }
+}
+
+int get_largest_abs_diff(uint8_t nr, uint8_t ng, uint8_t nb, uint8_t r, uint8_t g, uint8_t b){
+  uint8_t nrr = abs_diff(nr, r); 
+  uint8_t ngg = abs_diff(ng, g); 
+  uint8_t nbb = abs_diff(nb, b); 
+  if (nrr >= ngg) {
+    if (nrr >= nbb) {
+      return (int)nr - (int)r; 
+    } else{
+      return (int)nb - (int)b; 
+    }
+  } else{
+    if (ngg >= nbb) {
+      return (int)ng - (int)g; 
+    } else{
+      return (int)nb - (int)b; 
+    }
+  }
+}
+
+
 //! Transform the color component values in each input pixel
 //! by applying the bitwise complement operation. I.e., each bit
 //! in the color component information should be inverted
@@ -27,9 +68,9 @@ void imgproc_complement( struct Image *input_img, struct Image *output_img ) {
       uint32_t pixel = input_img->data[ index ];
       uint32_t newpixel;
       //RGBA format
-      uint8_t r = ~((pixel >> 24) & 0xFF);
-      uint8_t g = ~(pixel >> 16) & 0xFF;
-      uint8_t b = ~((pixel >> 8)& 0xFF);
+      uint8_t r = ~(get_r(pixel)) & 0xFF;
+      uint8_t g = ~(get_g(pixel)) & 0xFF;
+      uint8_t b = ~(get_b(pixel)) & 0xFF;
       uint8_t a = pixel & 0xFF;
       newpixel = ((uint32_t)r << 24) | ((uint32_t)g << 16) | ((uint32_t)b << 8) | a;
       output_img->data[index] = newpixel; 
@@ -79,13 +120,7 @@ void imgproc_ellipse( struct Image *input_img, struct Image *output_img ) {
   // TODO: implement
 }
 
-uint8_t abs_diff(uint8_t a, uint8_t b){
-  if (a > b) {
-    return a - b; 
-  } else{
-    return b - a; 
-  }
-}
+
 
 //! Transform the input image using an "emboss" effect. The pixels
 //! of the source image are transformed as follows.
@@ -137,35 +172,19 @@ void imgproc_emboss( struct Image *input_img, struct Image *output_img ) {
       uint32_t n_index = (row-1) * input_img -> width + (col-1); 
       uint32_t pixel = input_img -> data[index]; 
       uint32_t n_pixel = input_img -> data[n_index]; 
-      uint8_t nr = (n_pixel>>24)&0xFF; 
-      uint8_t ng = (n_pixel>>16)&0xFF; 
-      uint8_t nb = (n_pixel>>8)&0xFF; 
-      uint8_t r = (pixel>>24)&0xFF; 
-      uint8_t g = (pixel>>16)&0xFF; 
-      uint8_t b = (pixel>>8)&0xFF; 
+      uint8_t nr = get_r(n_pixel); 
+      uint8_t ng = get_g(n_pixel); 
+      uint8_t nb = get_b(n_pixel); 
+      uint8_t r = get_r(pixel);
+      uint8_t g = get_r(pixel);
+      uint8_t b = get_b(pixel);
       uint8_t a = input_img->data[index] & 0xFF; 
       //compare nr - r, ng - g, nb - b
-      uint8_t nrr = abs_diff(nr, r); 
-      uint8_t ngg = abs_diff(ng, g); 
-      uint8_t nbb = abs_diff(nb, b); 
-      int diff; 
-      if (nrr >= ngg) {
-        if (nrr >= nbb) {
-          diff = nr - r; 
-        } else {
-          diff = nb - b; 
-        }
-      } else{
-        if (ngg >= nbb) {
-          diff = ng - g; 
-        } else{
-          diff = nb - b; 
-        }
-      }
+      int diff = get_largest_abs_diff(nr, ng, nb, r, g, b);
       //compute gray = 128 + diff (negative -> 0, too big -> 255)
       //note: can't be neg
       int temp_gray = 128 + diff;
-      if (temp_gray> 255) {
+      if (temp_gray > 255) {
         temp_gray = 255; 
       } else if (temp_gray < 0){
         temp_gray = 0; 

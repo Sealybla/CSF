@@ -93,6 +93,11 @@ void test_complement_basic( TestObjs *objs );
 void test_transpose_basic( TestObjs *objs );
 void test_ellipse_basic( TestObjs *objs );
 void test_emboss_basic( TestObjs *objs );
+void test_green(TestObjs *objs); 
+void test_red(TestObjs *objs);
+void test_blue(TestObjs *objs);
+void test_abs_diff(TestObjs *objs);
+void test_get_largest_abs_diff(TestObjs *objs);
 // TODO: add prototypes for additional test functions
 
 int main( int argc, char **argv ) {
@@ -110,6 +115,11 @@ int main( int argc, char **argv ) {
   TEST( test_transpose_basic );
   TEST( test_ellipse_basic );
   TEST( test_emboss_basic );
+  TEST( test_green );
+  TEST( test_red );
+  TEST( test_blue );
+  TEST( test_abs_diff );
+  TEST( test_get_largest_abs_diff );
 
   TEST_FINI();
 }
@@ -214,8 +224,11 @@ bool images_equal( struct Image *a, struct Image *b ) {
   for ( int i = 0; i < a->height; ++i )
     for ( int j = 0; j < a->width; ++j ) {
       int index = i*a->width + j;
-      if ( a->data[index] != b->data[index] )
+      if ( a->data[index] != b->data[index] ){
+        printf("\nrow: %d col: %d \n", i, j);
+        printf("act: %x expect: %x \n", a->data[index], b->data[index]); 
         return false;
+      }
     }
 
   return true;
