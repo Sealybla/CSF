@@ -88,4 +88,11 @@ void imgproc_emboss( struct Image *input_img, struct Image *output_img );
 
 // TODO: add prototypes for your helper functions
 
+uint8_t get_r(uint32_t pixel);
+uint8_t get_g(uint32_t pixel);
+uint8_t get_b(uint32_t pixel);
+uint8_t abs_diff(uint8_t a, uint8_t b);
+int get_largest_abs_diff(uint8_t nr, uint8_t ng, uint8_t nb, uint8_t r, uint8_t g, uint8_t b);
+
+
 #endif // IMGPROC_H

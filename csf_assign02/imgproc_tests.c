@@ -93,12 +93,12 @@ void test_complement_basic( TestObjs *objs );
 void test_transpose_basic( TestObjs *objs );
 void test_ellipse_basic( TestObjs *objs );
 void test_emboss_basic( TestObjs *objs );
+// TODO: add prototypes for additional test functions
 void test_green(TestObjs *objs); 
 void test_red(TestObjs *objs);
 void test_blue(TestObjs *objs);
 void test_abs_diff(TestObjs *objs);
 void test_get_largest_abs_diff(TestObjs *objs);
-// TODO: add prototypes for additional test functions
 
 int main( int argc, char **argv ) {
   // allow the specific test to execute to be specified as the
@@ -381,4 +381,39 @@ void test_emboss_basic( TestObjs *objs ) {
   ASSERT( images_equal( objs->smiley_out, smiley_emboss_expected ) );
 
   destroy_img( smiley_emboss_expected );
+}
+
+void test_green(TestObjs *objs) {
+  uint32_t pixel = 0xAABBCCDD; 
+  ASSERT( get_g(pixel) == 0xBB ); 
+}
+
+void test_red(TestObjs *objs) {
+  uint32_t pixel = 0xAABBCCDD; 
+  ASSERT( get_r(pixel) == 0xAA ); 
+}
+
+void test_blue(TestObjs *objs) {
+  uint32_t pixel = 0xAABBCCDD; 
+  ASSERT( get_b(pixel) == 0xCC ); 
+}
+
+void test_abs_diff(TestObjs *objs) {
+  ASSERT( abs_diff(10, 5) == 5 ); 
+  ASSERT( abs_diff(5, 10) == 5 ); 
+  ASSERT( abs_diff(0, 0) == 0 ); 
+  ASSERT( abs_diff(255, 0) == 255 ); 
+  ASSERT( abs_diff(0, 255) == 255 ); 
+}
+
+void test_get_largest_abs_diff(TestObjs *objs) {
+  //nr, ng, nb, r, g, b
+  ASSERT( get_largest_abs_diff(10, 20, 30, 5, 15, 25) == 5 ); //nr
+  ASSERT( get_largest_abs_diff(10, 20, 30, 15, 5, 25) == 15 ); //ng
+  ASSERT( get_largest_abs_diff(10, 20, 30, 15, 25, 5) == 25 ); //nb
+  ASSERT( get_largest_abs_diff(10, 20, 30, 5, 15, 0) == 30 ); //nb
+  ASSERT( get_largest_abs_diff(10, 20, 30, 0, 15, 5) == 10 ); //nr
+  ASSERT( get_largest_abs_diff(10, 20, 30, 5, 0, 5) == 20 ); //ng
+  ASSERT( get_largest_abs_diff(10, 20, 30, 0, 0, 0) == 30 ); //nb
+  ASSERT( get_largest_abs_diff(10, 20, 30, 10, 20, 30) == 0 ); //all same
 }
