@@ -4,6 +4,7 @@
 #include <assert.h>
 #include "imgproc.h"
 
+
 // TODO: define your helper functions here
 
 
@@ -93,7 +94,18 @@ void imgproc_complement( struct Image *input_img, struct Image *output_img ) {
 //!         transformation can't be applied because the image
 //!         width and height are not the same
 int imgproc_transpose( struct Image *input_img, struct Image *output_img ) {
-  // TODO: implement
+  assert( input_img->width == output_img->width );
+  assert( input_img->height == output_img->height );
+  int32_t w = input_img->width;
+  int32_t h = input_img->height;
+  if (w != h) { return 0;}
+  for (int y =0; y < h; y ++) {
+    for(int x = 0; x < w; x++) {
+      
+      output_img -> data [x * h + y ] = input_img -> data[w * y +x];
+
+    }
+  }
   return 1;
 }
 
