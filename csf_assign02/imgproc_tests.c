@@ -411,9 +411,17 @@ void test_get_largest_abs_diff(TestObjs *objs) {
   ASSERT( get_largest_abs_diff(10, 20, 30, 5, 15, 25) == 5 ); //nr
   ASSERT( get_largest_abs_diff(10, 20, 30, 15, 5, 25) == 15 ); //ng
   ASSERT( get_largest_abs_diff(10, 20, 30, 15, 25, 5) == 25 ); //nb
-  ASSERT( get_largest_abs_diff(10, 20, 30, 5, 15, 0) == 30 ); //nb
-  ASSERT( get_largest_abs_diff(10, 20, 30, 0, 15, 5) == 10 ); //nr
-  ASSERT( get_largest_abs_diff(10, 20, 30, 5, 0, 5) == 20 ); //ng
-  ASSERT( get_largest_abs_diff(10, 20, 30, 0, 0, 0) == 30 ); //nb
+  //tie all same
   ASSERT( get_largest_abs_diff(10, 20, 30, 10, 20, 30) == 0 ); //all same
+  //tie nr/ng
+  ASSERT( get_largest_abs_diff(10, 20, 30, 5, 15, 30) == 5 ); //nr
+  //tie nr/nb
+  ASSERT( get_largest_abs_diff(10, 20, 30, 5, 20, 25) == 5 ); //nr
+  //tie ng/nb
+  ASSERT( get_largest_abs_diff(10, 20, 30, 10, 5, 25) == 15 ); //ng   
+  //negative diff
+  ASSERT( get_largest_abs_diff(5, 15, 25, 10, 20, 30) == -5 ); //nr
+  ASSERT( get_largest_abs_diff(15, 5, 25, 10, 20, 30) == -15 ); //ng
+  ASSERT( get_largest_abs_diff(25, 15, 5, 10, 20, 30)  == -25 ); //nb
+  
 }
