@@ -31,7 +31,7 @@ void imgproc_complement( struct Image *input_img, struct Image *output_img ) {
       uint8_t g = ~(pixel >> 16) & 0xFF;
       uint8_t b = ~(pixel >> 8);
       uint8_t a = pixel & 0xFF;
-      newpixel = (r << 24) + (g << 16) + (b << 8) + a;
+      newpixel = ((uint32_t)r << 24) + ((uint32_t)g << 16) + ((uint32_t)b << 8) + a;
       output_img->data[index] = newpixel; 
     }
   }
@@ -79,6 +79,14 @@ void imgproc_ellipse( struct Image *input_img, struct Image *output_img ) {
   // TODO: implement
 }
 
+uint8_t abs_diff(uint8_t a, uint8_t b){
+  if (a > b) {
+    return a - b; 
+  } else{
+    return b - a; 
+  }
+}
+
 //! Transform the input image using an "emboss" effect. The pixels
 //! of the source image are transformed as follows.
 //!
@@ -111,4 +119,57 @@ void imgproc_ellipse( struct Image *input_img, struct Image *output_img ) {
 //!                   transformed pixels should be stored)
 void imgproc_emboss( struct Image *input_img, struct Image *output_img ) {
   // TODO: implement
+  assert( input_img->width == output_img->width );
+  assert( input_img->height == output_img->height );
+  //set top/left
+  for(uint32_t r_elem = 0; r_elem < input_img->width; r_elem ++) {
+    uint8_t a_r = input_img[r_elem] & 0xFF;
+    uint8_t a_c = input_img[input_img->width * r_elem] & 0xFF;
+    uint32_t out_data_r = (uint32_t)128<<24 +  (uint32_t)128<<16 + (uint32_t)128<<8 + (uint32_t)a_r;
+    uint32_t out_data_c = (uint32_t)128<<24 +  (uint32_t)128<<16 + (uint32_t)128<<8 + (uint32_t)a_c;
+    output_img[r_elem] -> data = out_data_r; 
+    output_img[input_img->width * r_elem] -> data = out_data_c; 
+  }
+  //set not top/left
+  for(uint32_t r = 1; r< input_img->width; r ++) {
+    for (uint32_t c = 1; c < input_img -> height; c++) {
+      uint32_t index = r * input_img -> width + c; 
+      uint32_t n_index = (r-1) * input_img -> width + (c-1); 
+      uint32_t pixel = input_img[index] -> data; 
+      uint32_t n_pixel = input_img[n_index] -> data; 
+      uint8_t nr = (n_pixel>>24)&0xFF; 
+      uint8_t ng = (n_pixel>>16)&0xFF; 
+      uint8_t nb = (n_pixel>>8)&0xFF; 
+      uint8_t r = (pixel>>24)&0xFF; 
+      uint8_t g = (pixel>>16)&0xFF; 
+      uint8_t b = (pixel>>8)&0xFF; 
+      uint8_t a = input_img[index] & 0xFF; 
+      //compare nr - r, ng - g, nb - b
+      uint8_t nrr = abs_diff(nr, r); 
+      uint8_t ngg = abs_diff(ng, g); 
+      uint8_t nbb = abs_diff(nb, b); 
+      uint8_t diff; 
+      if (nrr >= ngg) {
+        if (nrr >= nbb) {
+          diff = nrr; 
+        } else {
+          diff = nbb; 
+        }
+      } else{
+        if (ngg >= nbb) {
+          diff = ngg; 
+        } else{
+          diff = nbb; 
+        }
+      }
+      //compute gray = 128 + diff (negative -> 0, too big -> 255)
+      //note: can't be neg
+      uint32_t gray = 128 + diff;
+      if (gray > 255) {
+        gray = 255; 
+      }
+      uint32_t out_data = (gray<<24) + (gray<<16) + (gray<<8) + (uint32_t) a; 
+      output_img[index] ->data = out_data; 
+    }
+  }
 }
