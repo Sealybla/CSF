@@ -159,11 +159,13 @@ void imgproc_emboss( struct Image *input_img, struct Image *output_img ) {
   //set top/left
   for(uint32_t r_elem = 0; r_elem < input_img->width; r_elem ++) {
     uint8_t a_r = input_img->data[r_elem] & 0xFF;
-    uint8_t a_c = input_img->data[input_img->width * r_elem] & 0xFF;
     uint32_t out_data_r = ((uint32_t)128<<24) +  ((uint32_t)128<<16) + ((uint32_t)128<<8) + (uint32_t)a_r;
-    uint32_t out_data_c = ((uint32_t)128<<24) +  ((uint32_t)128<<16) + ((uint32_t)128<<8) + (uint32_t)a_c;
     output_img -> data[r_elem] = out_data_r; 
-    output_img -> data[input_img->width * r_elem] = out_data_c; 
+  }
+  for (uint32_t c_elem = 1; c_elem < input_img->height; c_elem ++) {
+    uint8_t a_c = input_img->data[input_img->width * c_elem] & 0xFF;
+    uint32_t out_data_c = ((uint32_t)128<<24) +  ((uint32_t)128<<16) + ((uint32_t)128<<8) + (uint32_t)a_c;
+    output_img -> data[input_img->width * c_elem] = out_data_c; 
   }
   //set not top/left
   for(uint32_t row = 1; row< input_img->height; row ++) {
@@ -176,7 +178,7 @@ void imgproc_emboss( struct Image *input_img, struct Image *output_img ) {
       uint8_t ng = get_g(n_pixel); 
       uint8_t nb = get_b(n_pixel); 
       uint8_t r = get_r(pixel);
-      uint8_t g = get_r(pixel);
+      uint8_t g = get_g(pixel);
       uint8_t b = get_b(pixel);
       uint8_t a = input_img->data[index] & 0xFF; 
       //compare nr - r, ng - g, nb - b
