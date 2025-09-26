@@ -30,10 +30,41 @@
  *  %rdi - pointer to the input Image
  *  %rsi - pointer to the output Image (in which the
  *         transformed pixels should be stored)
+ *	%rcx - y index
+ *	%r10- x index
+ *	%rax- pixel
  */
 	.globl imgproc_complement
 imgproc_complement:
 	/* TODO: implement */
+	movl %rbx %rdi
+	movl %
+
+/*initialize outer loop variable before loop*/
+.outer_init: 
+	movl $0 %rcx  	/*y index = 0*/
+		
+/*loop across width and height. 
+*/
+.outer_loop: 
+	/*compare indices and break eax is greater*/
+	cmpl %rcx 4(%rdi)
+	jg .done_outer
+	
+	movl $0 %r10d	/*initialize inner loop, x index*/
+.inner_loop:
+	/*compare indices and break r10d is greater*/
+	cmpl %r10d 4(%rdi)
+	jg outer_loop
+
+	/*get and save pixel data: alpha, red, green, blue*/
+	movl (,4), %r11d	/*pixel (data location)*/
+	mov r8,		/*r*/
+	mov r9,		/*g*/
+	mov r10,	/*b*/
+	mov r11,	/*a*/
+	/*input this data into new pixel*/
+.done_outer:
 	ret
 
 /*
