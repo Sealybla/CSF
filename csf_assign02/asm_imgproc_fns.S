@@ -17,7 +17,7 @@
 
  .globl get_r
  get_r:
-	movq %rdi %rax
+	movq %rdi, %rax
 	shrl $24, %rax
 	andl $0xFF %rax
 	ret
@@ -25,16 +25,16 @@
 
 .globl get_g
  get_g: 
- 	movq %rdi %rax
+ 	movq %rdi, %rax
 	shrl $16, %rax
-	andl $0xFF %rax
+	andl $0xFF, %rax
 	ret
 
 .globl get_b
  get_b: 
-	movq %rdi %rax
+	movq %rdi, %rax
 	shrl $8, %rax
-	andl $0xFF %rax
+	andl $0xFF, %rax
 	ret
 
 
@@ -71,34 +71,35 @@ imgproc_complement:
 	movq (%rdi), %rbx /*temporary so we can use rdi*/
 	movl (%rbx, %rcx,4), %rdi	/*pixel (data location)*/
 	call get_r		/*get red pixel value*/
-	movl %rax %r8	/*move red value into r8 temporarily */
+	movl %rax, %r8	/*move red value into r8 temporarily */
 	not %r8			/*flips bits*/
 	and $0xFF, %r8 	/*make sure only bottom 8 bits*/
 	shl $24, %r8	/*move to correct place*/
 
 	call get_g		/*get green pixel value*/
-	movl %rax %r9 	/*move green value into r9 temporarily */
+	movl %rax, %r9 	/*move green value into r9 temporarily */
 	not %r9			/*flips bits*/
 	and $0xFF, %r9	/*make sure only bottom 8 bits*/
 	shl $16, %r9	/*move to correct place*/
 	or %r9, %r8		/*add to r8*/
 
 	call get_b		/*get blue pixel value*/
-	movl %rax %r9 	/*move blue value into r9 temporarily (overwrite) */
+	movl %rax, %r9 	/*move blue value into r9 temporarily (overwrite) */
 	not %r9			/*flips bits*/
 	and $0xFF, %r9	/*make sure only bottom 8 bits*/
 	shl $8, %r9		/*move to correct place*/
 	or %r9, %r8		/*add to r8*/
 
-	movl %rbx %r9 	/*move a value into r9 temporarily (overwrite) */
+	movl %rbx, %r9 	/*move a value into r9 temporarily (overwrite) */
 	and $0xFF, %r9	/*make sure only bottom 8 bits*/
 	or %r9, %r8		/*add to r8*/
-	
-	/*input this data into new pixel*/
 
+	/*input this data into new pixel*/
+	movq IMAGE_DATA_OFFSET(%rsi), %rdx	/*moves data into rdx so we can dereference later*/
+	movl %r8, (%rdx, %rcx, 4)			/*moves complemented data into correct index (rcx) */
 
 	incq %rcx	/*increase index*/
-	cmpl %rcx %eax	/*compare indices and break rcx is greater*/
+	cmpl %rcx, %eax	/*compare indices and break rcx is greater*/
 	jl .loop	/*loop again if rcx < eax*/
 .done_loop:
 	ret
