@@ -15,6 +15,16 @@
  * them visible to the test code.
  */
 
+ .globl get_r
+ get_r: 
+
+.globl get_g
+ get_g: 
+
+.globl get_b
+ get_b: 
+
+ 
 /*
  * Definitions of image transformation functions
  */
@@ -37,13 +47,9 @@
 	.globl imgproc_complement
 imgproc_complement:
 	/* TODO: implement */
-	movl %rbx %rdi
-	movl %
-
-/*initialize outer loop variable before loop*/
-.outer_init: 
+	/*initialize outer loop variable before loop*/
 	movl $0 %rcx  	/*y index = 0*/
-		
+	
 /*loop across width and height. 
 */
 .outer_loop: 
@@ -55,15 +61,19 @@ imgproc_complement:
 .inner_loop:
 	/*compare indices and break r10d is greater*/
 	cmpl %r10d 4(%rdi)
-	jg outer_loop
+	jg done_inner
 
 	/*get and save pixel data: alpha, red, green, blue*/
 	movl (,4), %r11d	/*pixel (data location)*/
 	mov r8,		/*r*/
-	mov r9,		/*g*/
-	mov r10,	/*b*/
 	mov r11,	/*a*/
 	/*input this data into new pixel*/
+
+	incq %r10d
+	jmp .inner_loop
+.done_inner
+	incq %rcx
+	jmp .outer_loop
 .done_outer:
 	ret
 
