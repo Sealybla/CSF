@@ -16,15 +16,29 @@
  */
 
  .globl get_r
- get_r: 
+ get_r:
+	movq %rdi %rax
+	shrl $24, %rax
+	andl $0xFF %rax
+	ret
+
 
 .globl get_g
  get_g: 
+ 	movq %rdi %rax
+	shrl $16, %rax
+	andl $0xFF %rax
+	ret
 
 .globl get_b
  get_b: 
+	movq %rdi %rax
+	shrl $8, %rax
+	andl $0xFF %rax
+	ret
 
- 
+
+
 /*
  * Definitions of image transformation functions
  */
@@ -40,41 +54,53 @@
  *  %rdi - pointer to the input Image
  *  %rsi - pointer to the output Image (in which the
  *         transformed pixels should be stored)
- *	%rcx - y index
- *	%r10- x index
- *	%rax- pixel
+ *	%rcx - index
+ *	%eax- total image # pixels
  */
+	movl 
 	.globl imgproc_complement
 imgproc_complement:
 	/* TODO: implement */
-	/*initialize outer loop variable before loop*/
-	movl $0 %rcx  	/*y index = 0*/
-	
-/*loop across width and height. 
-*/
-.outer_loop: 
-	/*compare indices and break eax is greater*/
-	cmpl %rcx 4(%rdi)
-	jg .done_outer
-	
-	movl $0 %r10d	/*initialize inner loop, x index*/
-.inner_loop:
-	/*compare indices and break r10d is greater*/
-	cmpl %r10d 4(%rdi)
-	jg done_inner
-
+	movl $0 %rcx  	/*initialize index = 0*/
+	movl IMAGE_WIDTH_OFFSET(%rdi), %eax /*width*/
+	movl IMAGE_HEIGHT_OFFSET(%rdi) %ecx /*height*/
+	imull %ecx %eax /*multiply width by height, store into eax*/
+/*loop across rcx */
+.loop: 
 	/*get and save pixel data: alpha, red, green, blue*/
-	movl (,4), %r11d	/*pixel (data location)*/
-	mov r8,		/*r*/
-	mov r11,	/*a*/
+	movq (%rdi), %rbx /*temporary so we can use rdi*/
+	movl (%rbx, %rcx,4), %rdi	/*pixel (data location)*/
+	call get_r		/*get red pixel value*/
+	movl %rax %r8	/*move red value into r8 temporarily */
+	not %r8			/*flips bits*/
+	and $0xFF, %r8 	/*make sure only bottom 8 bits*/
+	shl $24, %r8	/*move to correct place*/
+
+	call get_g		/*get green pixel value*/
+	movl %rax %r9 	/*move green value into r9 temporarily */
+	not %r9			/*flips bits*/
+	and $0xFF, %r9	/*make sure only bottom 8 bits*/
+	shl $16, %r9	/*move to correct place*/
+	or %r9, %r8		/*add to r8*/
+
+	call get_b		/*get blue pixel value*/
+	movl %rax %r9 	/*move blue value into r9 temporarily (overwrite) */
+	not %r9			/*flips bits*/
+	and $0xFF, %r9	/*make sure only bottom 8 bits*/
+	shl $8, %r9		/*move to correct place*/
+	or %r9, %r8		/*add to r8*/
+
+	movl %rbx %r9 	/*move a value into r9 temporarily (overwrite) */
+	and $0xFF, %r9	/*make sure only bottom 8 bits*/
+	or %r9, %r8		/*add to r8*/
+	
 	/*input this data into new pixel*/
 
-	incq %r10d
-	jmp .inner_loop
-.done_inner
-	incq %rcx
-	jmp .outer_loop
-.done_outer:
+
+	incq %rcx	/*increase index*/
+	cmpl %rcx %eax	/*compare indices and break rcx is greater*/
+	jl .loop	/*loop again if rcx < eax*/
+.done_loop:
 	ret
 
 /*
