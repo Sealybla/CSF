@@ -145,60 +145,59 @@ imgproc_complement:
 	.globl imgproc_transpose
 imgproc_transpose:
 	/* TODO: implement */
-	pushq %rbx
-	pushq %r12
-	pushq %r13
+	pushq %rbx /* pointer to the input pixel data array */
+	pushq %r12 /* pointer to the output pixel data array */
+	pushq %r13 /* row index i in outer loop */
 
 	movl IMAGE_WIDTH_OFFSET(%rdi), %edx /*width*/
 	movl IMAGE_HEIGHT_OFFSET(%rdi), %eax /*height*/
 	
 	cmp	%edx , %eax
-	je	.success /* Jump if not equal */
-	jmp	.fail
+	je	.success /* jump equal - run regularly */
+	jmp	.fail /* jump to the failed section to return 0 */
 
+/* case of when width == height */
 .success:
-	movl	%edx,	(%rsi) /* output -> width to input */
-	movl	%eax,	IMAGE_HEIGHT_OFFSET(%rsi)
+	/* copying the input dims into the ouput dims */
+	movl	%edx, (%rsi) /* output -> width to input */
+	movl	%eax, IMAGE_HEIGHT_OFFSET(%rsi) /* output -> height to input */
 
+	/* pointers to input + output data after the width and heigh dims */
 	movq	IMAGE_DATA_OFFSET(%rdi), %rbx /* rbx is the input data */
-	movq	IMAGE_DATA_OFFSET(%rsi), %r12
-	xorl	%r13d, %r13d /* Set loop i = 0 */
+	movq	IMAGE_DATA_OFFSET(%rsi), %r12 /* r12 is the output data */
+	movl $0, %r13d /* set outer loop for %r13d = 0 */
+/* outer loop */
 .row_loop:
-	cmp	%edx, %r13d
-	jge	.done
+	cmp	%edx, %r13d /* loop while %r13d < width */
+	jge	.done /* if loop is done or %r13d >= width == %edx then jump to .done */
 
-	xorl %ecx, %ecx
+	movl $0, %ecx /* set inner loop for %ecx = 0 */
+/* inner loop */
 .col_loop:
 	cmp	%eax, %ecx
-	jge .next_row
+	jge .next_row /* if loop is done or %ecx >= height == %eax then jump to .next_row */
 
-	movl %r13d, %r8d
-	imull %eax, %r8d
-	addl	%ecx, %r8d
-	movslq	%r8d, %r8
-	movl	(%rbx, %r8, 4), %r9d
+	movl %r13d, %r8d /* copy %r13d to %r8d */
+	imull %eax, %r8d /* multiply %r8d by height */
+	addl %ecx, %r8d  /* %r8d = i * height + %ecx */
+	movl	%r8d, %r8	/* extend the sign to 64 bits */
+	movl (%rbx, %r8, 4), %r9d /* r9d = %rbx + %r8 * 4  - 4 is the scale */
 
-	movl %ecx, %r10d
-    imull %edx, %r10d        
-    addl %r13d, %r10d       
-    movslq %r10d, %r10
-    movl %r9d, (%r12,%r10,4)
+	movl %ecx, %r10d /* copy %ecx to %r10d */
+    imull %edx, %r10d /* multiply %r8d by width */ 
+    addl %r13d, %r10d  /* %r10d = i * width + %r13d */
+    movl %r10d, %r10 /* extend the sign to 64 bits */
+    movl %r9d, (%r12,%r10,4) /* %r12 + %r10 * 4  = %r9d*/
 
-    incl %ecx               
-    jmp .col_loop
-
+    incl %ecx    /* increment the inner counter */       
+    jmp .col_loop /* run next col loop until the counter reaches height */
+/* to run next row */
 .next_row:
-    incl %r13d              
-    jmp .row_loop
-
+    incl %r13d  /* add one to row count */            
+    jmp .row_loop /* run the row loop */
+/* successful finish */
 .done:
     movl $1, %eax           
-    jmp .epilogue
-
-.fail:
-    mov    $0, %eax           
-
-.epilogue:
     popq   %r13
     popq   %r12
     popq   %rbx
