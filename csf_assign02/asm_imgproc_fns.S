@@ -17,7 +17,7 @@
 
  .globl get_r
  get_r:
-	movq %edi, %eax
+	movl %edi, %eax
 	shrl $24, %eax
 	andl $0xFF, %eax
 	ret
@@ -25,17 +25,33 @@
 
 .globl get_g
  get_g: 
- 	movq %edi, %eax
+ 	movl %edi, %eax
 	shrl $16, %eax
 	andl $0xFF, %eax
 	ret
 
 .globl get_b
  get_b: 
-	movq %edi, %eax
+	movl %edi, %eax
 	shrl $8, %eax
 	andl $0xFF, %eax
 	ret
+
+.globl abs_diff
+abs_diff:
+    movl %edi, %eax       # a
+    subl %esi, %eax       # eax = a - b
+    movl %eax, %edx
+    negl %edx
+    cmovl %edx, %eax      # if eax < 0, replace with -eax
+    ret
+
+.globl get_largest_abs_diff
+get_largest_abs_diff:
+    # params: rdi=r, rsi=g, rdx=b, rcx=nr, r8=ng, r9=nb
+    # implement logic similar to the C code above
+    # (bit more tedious in assembly, but same idea)
+    ret
 
 
 
@@ -54,7 +70,7 @@
  *  %rdi - pointer to the input Image
  *  %rsi - pointer to the output Image (in which the
  *         transformed pixels should be stored)
- *	%ecx - index
+ *	%rcx - index
  * 	%rdx - data 
  *	%r8 - output data
  *	%r11d- total # pixels
@@ -65,19 +81,19 @@ imgproc_complement:
 	/* TODO: implement */
 	/*compute total pixels into r11d */
 	movl IMAGE_WIDTH_OFFSET(%rdi), %r11d /*width*/
-	movl IMAGE_HEIGHT_OFFSET(%rdi), %eax /*height, temporarily using ecxt*/
-	imull %eax, %r11d /*multiply width by height, store into eax*/
+	movl IMAGE_HEIGHT_OFFSET(%rdi), %eax /*height*/
+	imul %eax, %r11d /*multiply width by height, store into eax*/
 
 	/*data init*/
 	movq IMAGE_DATA_OFFSET(%rdi), %rdx/*input data*/
 	movq IMAGE_DATA_OFFSET(%rsi), %r8 /*output data*/
 
-	movl $0, %ecx  	/*initialize index = 0*/
+	movq $0, %rcx  	/*initialize index = 0*/
 
-/*loop across ecx */
+/*loop across rcx */
 .loop: 
 	/*get and save pixel data: alpha, red, green, blue*/
-	movl (%rdx, %ecx, 4), %edi	/*pixel (data location)*/
+	movl (%rdx, %rcx, 4), %edi	/*pixel (data location)*/
 	call get_r			/*get red pixel value*/
 	movl %eax, %r10d	/*move red value into r10 temporarily */
 	notl %r10d			/*flips bits*/
@@ -103,11 +119,11 @@ imgproc_complement:
 	orl %r9d, %r10d		/*add to r8*/
 
 	/*input this data into new pixel*/
-	movl %r10d, (%r8, %ecx, 4)			/*moves complemented data into correct index (ecx) */
+	movl %r10d, (%r8, %rcx, 4)			/*moves complemented data into correct index (ecx) */
 
-	inc %ecx	/*increase index*/
-	cmpl %r11d, %ecx	/*compare indices and break ecx is greater*/
-	jl .loop	/*loop again if ecx < r11d*/
+	incq %rcx	/*increase index*/
+	cmp %r11d, %ecx	/*compare indices and break rcx is greater*/
+	jl .loop	/*loop again if rcx < r11d*/
 	ret
 
 /*
