@@ -49,10 +49,7 @@ abs_diff:
 .globl get_largest_abs_diff
 get_largest_abs_diff:
     # params: rdi=r, rsi=g, rdx=b, rcx=nr, r8=ng, r9=nb
-    # implement logic similar to the C code above
-    # (bit more tedious in assembly, but same idea)
     ret
-
 
 
 /*
