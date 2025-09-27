@@ -177,32 +177,42 @@ imgproc_transpose:
 	cmp	%eax, %ecx
 	jge .next_row /* if loop is done or %ecx >= height == %eax then jump to .next_row */
 
-	movl %r13d, %r8d /* copy %r13d to %r8d */
-	imull %eax, %r8d /* multiply %r8d by height */
-	addl %ecx, %r8d  /* %r8d = i * height + %ecx */
-	movl	%r8d, %r8	/* extend the sign to 64 bits */
-	movl (%rbx, %r8, 4), %r9d /* r9d = %rbx + %r8 * 4  - 4 is the scale */
+	movl	%r13d, %r8d 	/* copy %r13d to %r8d */
+	imull	%eax, %r8d 		/* multiply %r8d by height */
+	addl	%ecx, %r8d  	/* %r8d = i * height + %ecx */
+	movslq	%r8d, %r8		/* extend the sign to 64 bits */
+	movl	(%rbx, %r8, 4), %r9d /* r9d = %rbx + %r8 * 4  - 4 is the scale */
 
-	movl %ecx, %r10d /* copy %ecx to %r10d */
-    imull %edx, %r10d /* multiply %r8d by width */ 
-    addl %r13d, %r10d  /* %r10d = i * width + %r13d */
-    movl %r10d, %r10 /* extend the sign to 64 bits */
-    movl %r9d, (%r12,%r10,4) /* %r12 + %r10 * 4  = %r9d*/
+	movl	%ecx, %r10d 	/* copy %ecx to %r10d */
+    imull	%edx, %r10d 	/* multiply %r8d by width */ 
+    addl	%r13d, %r10d  	/* %r10d = i * width + %r13d */
+    movslq	%r10d, %r10 	/* extend the sign to 64 bits */
+    movl	%r9d, (%r12,%r10,4) /* %r12 + %r10 * 4  = %r9d*/
 
-    incl %ecx    /* increment the inner counter */       
-    jmp .col_loop /* run next col loop until the counter reaches height */
+    incl 	%ecx    /* increment the inner counter */       
+    jmp 	.col_loop /* run next col loop until the counter reaches height */
+
 /* to run next row */
 .next_row:
-    incl %r13d  /* add one to row count */            
-    jmp .row_loop /* run the row loop */
+    incl	 %r13d  	/* add one to row count */            
+    jmp 	.row_loop 	/* run the row loop */
+
 /* successful finish */
 .done:
-    movl $1, %eax           
-    popq   %r13
-    popq   %r12
-    popq   %rbx
-    ret
+    movl 	$1, %eax   /* return value 0 */        
+    jmp		.cleanup  /* clean + return */
 
+/* case of width not equal to height */
+.fail:
+	movl 	$0, %eax  /* return value 0 */    
+    jmp		.cleanup  /* clean + return */
+
+/* cleaning + return */
+.cleanup:
+	popq  	%r13 /* cleanup %r13 */
+    popq	%r12 /* cleanup %r12 */
+    popq	%rbx /* cleanup %rbx */
+    ret 		/* return */
 /*
  *  Transform the input image by copying only those pixels that are
  *  within an ellipse centered within the bounds of the image.
