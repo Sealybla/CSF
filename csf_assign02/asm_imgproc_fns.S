@@ -138,7 +138,9 @@ imgproc_complement:
  *  %rdi - pointer to the input Image
  *  %rsi - pointer to the output Image (in which the
  *                    transformed pixels should be stored)
- * 
+ *  %rbx - pointer to the input pixel data array
+ *	%r12 - pointer to the output pixel data array
+ * 	%r13 - used as row index i in outer loop
  *  @return 1 if the transformation succeeded, or 0 if the
  *          transformation can't be applied because the image
  *          width and height are not the same
@@ -146,7 +148,64 @@ imgproc_complement:
 	.globl imgproc_transpose
 imgproc_transpose:
 	/* TODO: implement */
-	ret
+	pushq %rbx
+	pushq %r12
+	pushq %r13
+
+	movl IMAGE_WIDTH_OFFSET(%rdi), %edx /*width*/
+	movl IMAGE_HEIGHT_OFFSET(%rdi), %eax /*height*/
+	
+	cmp	%edx , %eax
+	je	.success /* Jump if not equal */
+	jmp	.fail
+
+.success:
+	movl	%edx,	(%rsi) /* output -> width to input */
+	movl	%eax,	IMAGE_HEIGHT_OFFSET(%rsi)
+
+	movq	IMAGE_DATA_OFFSET(%rdi), %rbx /* rbx is the input data */
+	movq	IMAGE_DATA_OFFSET(%rsi), %r12
+	xorl	%r13d, %r13d /* Set loop i = 0 */
+.row_loop:
+	cmp	%edx, %r13d
+	jge	.done
+
+	xorl %ecx, %ecx
+.col_loop:
+	cmp	%eax, %ecx
+	jge .next_row
+
+	movl %r13d, %r8d
+	imull %eax, %r8d
+	addl	%ecx, %r8d
+	movslq	%r8d, %r8
+	movl	(%rbx, %r8, 4), %r9d
+
+	movl %ecx, %r10d
+    imull %edx, %r10d        
+    addl %r13d, %r10d       
+    movslq %r10d, %r10
+    movl %r9d, (%r12,%r10,4)
+
+    incl %ecx               
+    jmp .col_loop
+
+.next_row:
+    incl %r13d              
+    jmp .row_loop
+
+.done:
+    movl $1, %eax           
+    jmp .epilogue
+
+.fail:
+    mov    $0, %eax           
+
+.epilogue:
+    popq   %r13
+    popq   %r12
+    popq   %rbx
+    ret
 
 /*
  *  Transform the input image by copying only those pixels that are
