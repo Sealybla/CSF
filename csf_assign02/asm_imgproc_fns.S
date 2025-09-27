@@ -17,24 +17,24 @@
 
  .globl get_r
  get_r:
-	movq %rdi, %rax
-	shrl $24, %rax
-	andl $0xFF %rax
+	movq %edi, %eax
+	shrl $24, %eax
+	andl $0xFF, %eax
 	ret
 
 
 .globl get_g
  get_g: 
- 	movq %rdi, %rax
-	shrl $16, %rax
-	andl $0xFF, %rax
+ 	movq %edi, %eax
+	shrl $16, %eax
+	andl $0xFF, %eax
 	ret
 
 .globl get_b
  get_b: 
-	movq %rdi, %rax
-	shrl $8, %rax
-	andl $0xFF, %rax
+	movq %edi, %eax
+	shrl $8, %eax
+	andl $0xFF, %eax
 	ret
 
 
@@ -54,54 +54,60 @@
  *  %rdi - pointer to the input Image
  *  %rsi - pointer to the output Image (in which the
  *         transformed pixels should be stored)
- *	%rcx - index
- *	%eax- total image # pixels
- */
-	movl 
+ *	%ecx - index
+ * 	%rdx - data 
+ *	%r8 - output data
+ *	%r11d- total # pixels
+ *	Temporaries: %eax, %r9d, %r10d
+ */ 
 	.globl imgproc_complement
 imgproc_complement:
 	/* TODO: implement */
-	movl $0 %rcx  	/*initialize index = 0*/
-	movl IMAGE_WIDTH_OFFSET(%rdi), %eax /*width*/
-	movl IMAGE_HEIGHT_OFFSET(%rdi) %ecx /*height*/
-	imull %ecx %eax /*multiply width by height, store into eax*/
-/*loop across rcx */
+	/*compute total pixels into r11d */
+	movl IMAGE_WIDTH_OFFSET(%rdi), %r11d /*width*/
+	movl IMAGE_HEIGHT_OFFSET(%rdi), %eax /*height, temporarily using ecxt*/
+	imull %eax, %r11d /*multiply width by height, store into eax*/
+
+	/*data init*/
+	movq IMAGE_DATA_OFFSET(%rdi), %rdx/*input data*/
+	movq IMAGE_DATA_OFFSET(%rsi), %r8 /*output data*/
+
+	movl $0, %ecx  	/*initialize index = 0*/
+
+/*loop across ecx */
 .loop: 
 	/*get and save pixel data: alpha, red, green, blue*/
-	movq (%rdi), %rbx /*temporary so we can use rdi*/
-	movl (%rbx, %rcx,4), %rdi	/*pixel (data location)*/
-	call get_r		/*get red pixel value*/
-	movl %rax, %r8	/*move red value into r8 temporarily */
-	not %r8			/*flips bits*/
-	and $0xFF, %r8 	/*make sure only bottom 8 bits*/
-	shl $24, %r8	/*move to correct place*/
+	movl (%rdx, %ecx, 4), %edi	/*pixel (data location)*/
+	call get_r			/*get red pixel value*/
+	movl %eax, %r10d	/*move red value into r10 temporarily */
+	notl %r10d			/*flips bits*/
+	andl $0xFF, %r10d 	/*make sure only bottom 8 bits*/
+	shll $24, %r10d		/*move to correct*/
 
-	call get_g		/*get green pixel value*/
-	movl %rax, %r9 	/*move green value into r9 temporarily */
-	not %r9			/*flips bits*/
-	and $0xFF, %r9	/*make sure only bottom 8 bits*/
-	shl $16, %r9	/*move to correct place*/
-	or %r9, %r8		/*add to r8*/
+	call get_g			/*get green pixel value*/
+	movl %eax, %r9d 	/*move green value into r9 temporarily */
+	notl %r9d			/*flips bits*/
+	andl $0xFF, %r9d	/*make sure only bottom 8 bits*/
+	shll $16, %r9d		/*move to correct place*/
+	orl %r9d, %r10d		/*add to r8*/
 
-	call get_b		/*get blue pixel value*/
-	movl %rax, %r9 	/*move blue value into r9 temporarily (overwrite) */
-	not %r9			/*flips bits*/
-	and $0xFF, %r9	/*make sure only bottom 8 bits*/
-	shl $8, %r9		/*move to correct place*/
-	or %r9, %r8		/*add to r8*/
+	call get_b			/*get blue pixel value*/
+	movl %eax, %r9d 	/*move blue value into r9 temporarily (overwrite) */
+	notl %r9d			/*flips bits*/
+	andl $0xFF, %r9d	/*make sure only bottom 8 bits*/
+	shll $8, %r9d		/*move to correct place*/
+	orl %r9d, %r10d		/*add to r8*/
 
-	movl %rbx, %r9 	/*move a value into r9 temporarily (overwrite) */
-	and $0xFF, %r9	/*make sure only bottom 8 bits*/
-	or %r9, %r8		/*add to r8*/
+	movl %edi, %r9d 	/*move pixel into r9 temporarily (overwrite) */
+	andl $0xFF, %r9d	/*make sure only bottom 8 bits*/
+	orl %r9d, %r10d		/*add to r8*/
 
 	/*input this data into new pixel*/
-	movq IMAGE_DATA_OFFSET(%rsi), %rdx	/*moves data into rdx so we can dereference later*/
-	movl %r8, (%rdx, %rcx, 4)			/*moves complemented data into correct index (rcx) */
+	movl %r10d, (%r8, %ecx, 4)			/*moves complemented data into correct index (ecx) */
 
-	incq %rcx	/*increase index*/
-	cmpl %rcx, %eax	/*compare indices and break rcx is greater*/
-	jl .loop	/*loop again if rcx < eax*/
-.done_loop:
+	inc %ecx	/*increase index*/
+	cmpl %r11d, %ecx	/*compare indices and break ecx is greater*/
+	jl .loop	/*loop again if ecx < r11d*/
 	ret
 
 /*
