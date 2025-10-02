@@ -54,6 +54,8 @@ get_largest_abs_diff:
 	# other: eax (output of helper), r10d temporary
 	#get nrr
 	/*more callee saved registers*/
+
+	
 	pushq %rbx
     pushq %r12
     pushq %r13
@@ -340,43 +342,98 @@ imgproc_ellipse:
  *  %rsi - pointer to the output Image (in which the
  *         transformed pixels should be stored)
  *	Variables: 
- *	%rcx - index
- * 	%rdx - data 
- *	%r8 - output data
- *	%r9d - height
- *	%r10d- width
- *	Temporaries: %rax, %r11, /use stack
+ *	%r14 - index
+ * 	%r12 - data 
+ *	%r13 - output data
+ *	Temporaries: %rax, %rcx, %rdx, %rdi, %rsi %r8, %r9, %r10, %r11
  */
 	.globl imgproc_emboss
 imgproc_emboss:
 	/* TODO: implement */
-	movq IMAGE_DATA_OFFSET(%rdi), %rdx		#input data 
-	movq IMAGE_DATA_OFFSET(%rsi), %r8		#output data
-	movq IMAGE_HEIGHT_OFFSET(%rdi), %r9d	#height 
-	movq IMAGE_WIDTH_OFFSET(%rdi), %r10d	#width 
-	movq $0, %rcx 							#initialize index
+	pushq %r12
+	pushq %r13
+	pushq %r14
+	pushq %r15
+	pushq %rbx
+
+	movq %rdi, %r12		#input data 
+	movq %rsi, %r13		#outputs data
+	movq $0, %r14 		#initialize index
 .emboss_loop:
 	/*check if first row*/
-	cmpl %ecx, %r10d	#compare index with width
+	cmpl %r14d, IMAGE_WIDTH_OFFSET(%r12)	#compare index with width
 	jl .if_gray			#jump to (turn pixel gray func) if first row
 
-	/*check if rcx is first column*/
-	pushq %rdx			#free rdx value 
+	/*check if r14d is first column*/
 
-	movl %ecx, %eax		#moves current index into eax for use (low 32 bits)
+	movl %r14d, %eax		#moves current index into eax for use (low 32 bits)
 	xor %edx, %edx		#set edx = 0 (high 32 bits)
+	movl IMAGE_WIDTH_OFFSET(%r12), %r10d
 	divl %r10d			#divide edx:eax by width, quotient goes to eax, remainder goes to edx
 
 	testl %edx, %edx	#check edx is 0 
 	jz .if_gray			#jump to (turn pixel gray function) if first col
 
-	popq %rdx			#return data into rdx 
-
 	/*not first row/col*/
+	# params: edi=r (temp rbx), esi=g, edx=b, ecx=nr, r8d=ng, r9d=nb (input into get_largest_abs_diff), output rax
+	# getrgb: input - rdi, ouptut-rax 
+	movl IMAGE_DATA_OFFSET(%r12), %r9d	#move data into r9d (will override later)
+	movl (%r9d, %r14d, 4), %edi			#get current pixel
+	/*get r*/
+	call get_r
+	movl %eax, %rbx
+	/*get g*/
+	call get_g
+	movl %eax, %esi
+	/*get b*/
+	call get_b
+	movl %eax, %edx
+
+	/*top left corner index into r8d (will override later)*/
+	movl %r14d, %r8d							
+	subl IMAGE_WIDTH_OFFSET(%r12), %r8d 
+	subl $1, %r8d
+	movl (%r9d, %r8d, 4), %edi		#get top left corner pixel
+	/*get r*/
+	call get_r
+	movl %eax, %ecx
+	/*get g*/
+	call get_g
+	movl %eax, %r8d
+	/*get b*/
+	call get_b
+	movl %eax, %r9d
+
+	/*move r back into edi*/
+	movl %rbx, %edi
+
+	call get_largest_abs_diff	#stores largest abs diff return into eax 
+
+	/*checks if diff is greater than 255 or less than 0*/
+	addl $128, %eax
+	compl $255, %eax
+	jg ._if_255 
+	compl $0, %eax
+	jl ._if_0
+._if_255:
+	movl $255, %eax
+	jmp ._end_if
+._if_0:
+	movl $0, %eax
+	jmp ._end_if
+._end_if:
+	/*put eax into r11d and move up for rgb*/
+	andl 0xFF, %eax		#make sure eax is good range
+	movl %eax, %r11d	#scroll up to make room for next color
+	shll $8, %r11d
+	movl %eax, %r11d
+	shll $8, %r11d
+	movl %eax, %r11d
+	shll $8, %r11d
+	jmp .put_data_in	#will add a to r11d and put data into ouput image
 
 .if_gray:
 	#check exit loop 
-	popq %rdx			#return data into rdx 
 
 	/*set rgb values to 128, keep a value*/
 	movl $128, %r11d	#r value
@@ -385,19 +442,27 @@ imgproc_emboss:
 	shll $8, %r11d		#move up to make room 
 	orl $128, %r11d		#b value
 	shll $8, %r11d		#move up to make room
-	
+
+.put_data_in:
 	/*extract a value*/
-	movl (%rdi, %rcx, 4) %edi #insert pixel value at location into edi
-	andl 0xFF, %edi		#get a value
-	orl %edi, %r11d		#add a value to r11d
+	movq IMAGE_DATA_OFFSET(%r12), %r9
+	movq(%r9, %r14, 4), %edi	#insert pixel value at location into edi
+	andl 0xFF, %edi								#get a value
+	orl %edi, %r11d								#add a value to r11d WHY IS THERE A SQUARE HERE STOP
 
 	/*insert r11d data into correct location in output data*/
-	movl %r11d, (%r8,%rcx,4)
+	movl IMAGE_DATA_OFFSET(%r13), %r8
+	movl %r11d, (%r8,%r14,4)
+	
+	incq %r14			#increase index
 
+	/*get height times width*/
+	movl IMAGE_HEIGHT_OFFSET(%r12), %r9d
+	mull IMAGE_WIDTH_OFFSET(%r12), %r9d
 
-.out_condition
-	/*compare index with total height * width*/
-	incq %rcx
+	
+	compl %r14d, %r9d	# compare index with total height * width
+	jl .emboss_loop		# jump if index < height * width
 
 	ret
 
