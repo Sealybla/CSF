@@ -46,9 +46,76 @@ abs_diff:
     cmovl %edx, %eax      # if eax < 0, replace with -eax
     ret
 
+
 .globl get_largest_abs_diff
 get_largest_abs_diff:
-    # params: rdi=r, rsi=g, rdx=b, rcx=nr, r8=ng, r9=nb
+    # params: edi=r, esi=g, edx=b, ecx=nr, r8d=ng, r9d=nb
+	# new params: rax = return val, edx(new)=nrr, ecx(new)=ngg, r8d(new)=nbb (callee saved)
+	# other: eax (output of helper), r10d temporary
+	#get nrr
+	/*more callee saved registers*/
+	pushq %rbx
+    pushq %r12
+    pushq %r13
+    pushq %r14
+    pushq %r15
+	/*move original to new callee saved registers, other than r9 which stays*/
+	movl %edi, %ebx 	#rs
+	movl %esi, %r12d 	#g
+	movl %edx, %r13d	#b
+	movl %ecx, %r14d 	#nr
+	movl %r8d, %r15d 	#ng
+	#note: r9d is nb
+	/*calculate nrr*/
+	movl %ebx, %edi
+	movl %r14d, %esi 
+	call abs_diff
+	movl %eax, %edx
+	/*calculate ngg*/
+	movl %r12d, %edi
+	movl %r15d, %esi
+	call abs_diff
+	movl %eax, %ecx
+	/*calculate nbb*/
+	movl %r13d, %edi
+	movl %r9d, %esi
+	call abs_diff
+	movl %eax, %r8d
+	/*not (nrr >= ngg) --> jump to else*/
+	cmpl %edx, %ecx
+	jg .else
+.if: 
+	/*not (nrr >= nbb) --> jump to if else*/
+	cmpl %edx, %r8d
+	jg .if_else
+	/*return (int)nr - (int)r; */
+	movl %r14d, %rax
+	subl %ebx, %rax
+	jmp .return_val
+.if_else: 
+	/*return (int)nb - (int)b; */
+	movl %r9d, %rax
+	subl %r13d, %rax
+	jmp .return_val
+.else:
+	/* not (ngg >= nbb) --> jump to else_else*/
+	cmpl %ecx, %r8d
+	jg .else_else
+	/*return (int)ng - (int)g; */
+	movl %r15d, %rax
+	subl %r12d %rax
+	jmp .return_val
+.else_else:
+	/*return (int)nb - (int)b;*/
+	movl %r9d, %rax
+	subl %r13d, %rax
+	jmp .return_val
+.return_val:
+	popq %r15
+    popq %r14  
+    popq %r13
+    popq %r12
+    popq %rbx
     ret
 
 
@@ -102,18 +169,18 @@ imgproc_complement:
 	notl %r9d			/*flips bits*/
 	andl $0xFF, %r9d	/*make sure only bottom 8 bits*/
 	shll $16, %r9d		/*move to correct place*/
-	orl %r9d, %r10d		/*add to r8*/
+	orl %r9d, %r10d		/*add to r10d*/
 
 	call get_b			/*get blue pixel value*/
 	movl %eax, %r9d 	/*move blue value into r9 temporarily (overwrite) */
 	notl %r9d			/*flips bits*/
 	andl $0xFF, %r9d	/*make sure only bottom 8 bits*/
 	shll $8, %r9d		/*move to correct place*/
-	orl %r9d, %r10d		/*add to r8*/
+	orl %r9d, %r10d		/*add to r10d*/
 
 	movl %edi, %r9d 	/*move pixel into r9 temporarily (overwrite) */
 	andl $0xFF, %r9d	/*make sure only bottom 8 bits*/
-	orl %r9d, %r10d		/*add to r8*/
+	orl %r9d, %r10d		/*add to r10d*/
 
 	/*input this data into new pixel*/
 	movl %r10d, (%r8, %rcx, 4)			/*moves complemented data into correct index (ecx) */
@@ -271,11 +338,67 @@ imgproc_ellipse:
  *  Parameters:
  *  %rdi - pointer to the input Image
  *  %rsi - pointer to the output Image (in which the
- *                    transformed pixels should be stored)
+ *         transformed pixels should be stored)
+ *	Variables: 
+ *	%rcx - index
+ * 	%rdx - data 
+ *	%r8 - output data
+ *	%r9d - height
+ *	%r10d- width
+ *	Temporaries: %rax, %r11, /use stack
  */
 	.globl imgproc_emboss
 imgproc_emboss:
 	/* TODO: implement */
+	movq IMAGE_DATA_OFFSET(%rdi), %rdx		#input data 
+	movq IMAGE_DATA_OFFSET(%rsi), %r8		#output data
+	movq IMAGE_HEIGHT_OFFSET(%rdi), %r9d	#height 
+	movq IMAGE_WIDTH_OFFSET(%rdi), %r10d	#width 
+	movq $0, %rcx 							#initialize index
+.emboss_loop:
+	/*check if first row*/
+	cmpl %ecx, %r10d	#compare index with width
+	jl .if_gray			#jump to (turn pixel gray func) if first row
+
+	/*check if rcx is first column*/
+	pushq %rdx			#free rdx value 
+
+	movl %ecx, %eax		#moves current index into eax for use (low 32 bits)
+	xor %edx, %edx		#set edx = 0 (high 32 bits)
+	divl %r10d			#divide edx:eax by width, quotient goes to eax, remainder goes to edx
+
+	testl %edx, %edx	#check edx is 0 
+	jz .if_gray			#jump to (turn pixel gray function) if first col
+
+	popq %rdx			#return data into rdx 
+
+	/*not first row/col*/
+
+.if_gray:
+	#check exit loop 
+	popq %rdx			#return data into rdx 
+
+	/*set rgb values to 128, keep a value*/
+	movl $128, %r11d	#r value
+	shll $8, %r11d		#move up to make room 
+	orl $128, %r11d		#g value
+	shll $8, %r11d		#move up to make room 
+	orl $128, %r11d		#b value
+	shll $8, %r11d		#move up to make room
+	
+	/*extract a value*/
+	movl (%rdi, %rcx, 4) %edi #insert pixel value at location into edi
+	andl 0xFF, %edi		#get a value
+	orl %edi, %r11d		#add a value to r11d
+
+	/*insert r11d data into correct location in output data*/
+	movl %r11d, (%r8,%rcx,4)
+
+
+.out_condition
+	/*compare index with total height * width*/
+	incq %rcx
+
 	ret
 
 /*
