@@ -304,11 +304,123 @@ imgproc_transpose:
  *  %rdi - pointer to the input Image
  *  %rsi - pointer to the output Image (in which the
  *                    transformed pixels should be stored)
+ *	%r15 - width of the image
+ *  %r13 - height of the image
+ *	%r14 - output data
+ *	%r11 - input data
+ *	
  */
 	.globl imgproc_ellipse
 imgproc_ellipse:
-	/* TODO: implement */
-	ret
+	pushq %r12
+	pushq %r13
+	pushq %r14
+	pushq %r15
+
+
+	/* calculate */
+
+	movl	IMAGE_WIDTH_OFFSET(%rdi), %r12d
+	shrl	$1, %r12d
+	
+	movl	IMAGE_HEIGHT_OFFSET(%rdi), %r13d
+	shrl	$1, %r13d
+
+	cmpl $0, %r12d
+	je .done_two
+	cmpl $0, %r13d  
+	je .done_two
+
+	/* copy to output width and length */
+	movl IMAGE_WIDTH_OFFSET(%rdi), %eax
+	movl %eax, IMAGE_WIDTH_OFFSET(%rsi)   
+	movl IMAGE_HEIGHT_OFFSET(%rdi), %eax
+	movl %eax, IMAGE_HEIGHT_OFFSET(%rsi) 
+
+	/* pointers to input + output data after the width and heigh dims */
+	movq	IMAGE_DATA_OFFSET(%rdi), %r11 /* r11 is the input data */
+	movq	IMAGE_DATA_OFFSET(%rsi), %r14 /* r14 is the output data */
+
+	movl	$0, %r10d /* set outer loop for %r10d = 0 */
+
+/* outer loop */
+.row_loop_two:
+	cmp	IMAGE_HEIGHT_OFFSET(%rdi), %r10d /* loop while %edx< height */
+	jge	.done_two /* if loop is done or %edx >= width == %edx then jump to .done */
+
+	movl $0, %ecx /* set inner loop for %ecx = 0 */
+/* inner loop */
+.col_loop_two:
+	cmp	IMAGE_WIDTH_OFFSET(%rdi), %ecx
+	jge .next_row_two /* if loop is done or %ecx >= width == %eax then jump to .next_row */
+
+	/* calculating (10000*y*y) */
+	movl	%r10d, %r9d 	/* copy (height) %ecx to %r9d */
+	subl	%r13d, %r9d
+	imull	%r9d, %r9d	/* square %r9d */
+	imull	$10000, %r9d	/* multiply by 10000 */
+
+	/* division */
+	movl	%r9d, %eax /* copy the quotient */
+	movl	$0, %edx /* empty edx to be safe*/
+	movl	%r13d, %r15d
+	imull	%r15d, %r15d
+	divl	%r15d
+	movl	%eax, %r9d
+
+	/* calculating (10000*x*x) */
+	movl	%ecx, %r8d /* copy the width counter to r8d */
+	subl	%r12d, %r8d
+	imull	%r8d, %r8d	/* square %r8d */
+	imull	$10000, %r8d /* multiply r8d by 10000 */
+
+	/* division */
+	movl	%r8d, %eax /* copy the quotient */
+	movl	$0, %edx /* empty edx to be safe*/
+	movl	%r12d, %r15d
+	imull	%r15d, %r15d
+	divl	%r15d
+	movl	%eax, %r8d
+
+	addl	%r8d, %r9d /* floor((10000*x*x)/a) + floor((10000*y*y)/a) */
+	cmp 	$10000, %r9d
+	jle 	.in_ellipse
+
+	/* set values outside of ellipse to black */
+	movl	%r10d, %r9d 	/* copy %ecx to %r9d */
+    imull	IMAGE_WIDTH_OFFSET(%rdi), %r9d 	/* multiply %r8d by width */ 
+    addl	%ecx, %r9d  	/* %r9d = ecx * width + %r10d */
+    movslq	%r9d, %r9 	/* extend the sign to 64 bits */
+    movl	$0xFF, (%r14,%r9,4) /* copy to the output*/
+
+    incl 	%ecx    /* increment the inner counter */       
+    jmp 	.col_loop_two /* run next col loop until the counter reaches height */
+
+/* to run next row */
+.next_row_two:
+    incl	 %r10d  	/* add one to row count */            
+    jmp 	.row_loop_two 	/* run the row loop */
+
+/* case of in ellipse and we copy the points directly */
+.in_ellipse:
+	movl	%r10d, %r9d 	/* copy %ecx to %r9d */
+    imull	IMAGE_WIDTH_OFFSET(%rdi), %r9d 	/* multiply %r8d by width */ 
+    addl	%ecx, %r9d  	/* %r9d = ecx * width + %r10d */
+    movslq	%r9d, %r9 	/* extend the sign to 64 bits */
+    movl (%r11, %r9, 4), %eax      /* Load from input into register */
+	movl %eax, (%r14,%r9,4)        /* Store from register to output */
+	incl 	%ecx    /* increment the inner counter */       
+    jmp 	.col_loop_two /* run next col loop until the counter reaches height */
+
+/* successful finish */
+.done_two:
+	movl $1, %eax /* set 1 as return value */
+	popq %r15
+	popq %r14
+	popq %r13
+	popq %r12
+
+    ret 		/* return */
 
 /*
  *  Transform the input image using an "emboss" effect. The pixels
