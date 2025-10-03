@@ -484,7 +484,7 @@ imgproc_emboss:
 
 	/*check if r14d is first column*/
 
-	movl %r14d, %eax		#moves current index into eax for use (low 32 bits)
+	movl %r14d, %eax	#moves current index into eax for use (low 32 bits)
 	xor %edx, %edx		#set edx = 0 (high 32 bits)
 	movl IMAGE_WIDTH_OFFSET(%r12), %r10d
 	divl %r10d			#divide edx:eax by width, quotient goes to eax, remainder goes to edx
@@ -508,14 +508,14 @@ imgproc_emboss:
 	movl %eax, %r9d
 
 	/*top left corner index into r8d (will override later)*/
-	xor %rbx, %rbx	#zero out just in case
+	xor %rbx, %rbx					#zero out just in case
 	movl %r14d, %ebx							
 	subl IMAGE_WIDTH_OFFSET(%r12), %ebx
 	subl $1, %ebx
 	movl (%r10, %rbx, 4), %edi		#get top left corner pixel
 	/*get nr*/
 	call get_r
-	movl %eax, %ebx #will change later
+	movl %eax, %ebx 				#will change later
 	/*get ng*/
 	call get_g
 	movl %eax, %esi
@@ -543,7 +543,7 @@ imgproc_emboss:
 	jmp ._end_if
 ._end_if:
 	/*put eax into r11d and move up for rgb*/
-	andl $0xFF, %eax		#make sure eax is good range
+	andl $0xFF, %eax	#make sure eax is good range
 	movl %eax, %r11d	#scroll up to make room for next color
 	shll $8, %r11d
 	orl %eax, %r11d
@@ -553,23 +553,13 @@ imgproc_emboss:
 	jmp .put_data_in	#will add a to r11d and put data into ouput image
 
 .if_gray:
-	#check exit loop 
-
 	movl $0x80808000, %r11d
-
-	/*set rgb values to 128, keep a value*/
-	#movl $128, %r11d	#r value
-	#shll $8, %r11d		#move up to make room 
-	#orl $128, %r11d		#g value
-	#shll $8, %r11d		#move up to make room 
-	#orl $128, %r11d		#b value
-	#shll $8, %r11d		#move up to make room
 
 .put_data_in:
 	/*extract a value*/
 	movq IMAGE_DATA_OFFSET(%r12), %r9
 	movl (%r9, %r14, 4), %edi		# insert pixel value at location into edi
-	andl $0xFF, %edi					# get a value
+	andl $0xFF, %edi				# get a value
 	orl %edi, %r11d					# add a value to r11d 
 
 	/*insert r11d data into correct location in output data*/
@@ -583,7 +573,7 @@ imgproc_emboss:
 	imull IMAGE_WIDTH_OFFSET(%r12), %r9d
 
 	
-	cmpq %r9, %r14	# compare index with total height * width
+	cmpq %r9, %r14		# compare index with total height * width
 	jl .emboss_loop		# jump if index < height * width
 
 	popq %rbx
