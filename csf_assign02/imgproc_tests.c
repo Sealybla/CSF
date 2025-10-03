@@ -115,15 +115,16 @@ int main( int argc, char **argv ) {
   TEST( test_transpose_basic );
   /*
   TEST( test_ellipse_basic );
-  TEST( test_emboss_basic );
   */
-  /*
+  TEST( test_emboss_basic );
+  
+  
   TEST( test_green );
   TEST( test_red );
   TEST( test_blue );
   TEST( test_abs_diff );
   TEST( test_get_largest_abs_diff );
-  */
+  
 
   TEST_FINI();
 }
@@ -386,7 +387,7 @@ void test_emboss_basic( TestObjs *objs ) {
 
   destroy_img( smiley_emboss_expected );
 }
-/*
+
 
 void test_green(TestObjs *objs) {
   uint32_t pixel = 0xAABBCCDD; 
@@ -410,24 +411,24 @@ void test_abs_diff(TestObjs *objs) {
   ASSERT( abs_diff(255, 0) == 255 ); 
   ASSERT( abs_diff(0, 255) == 255 ); 
 }
-  */
-
-// void test_get_largest_abs_diff(TestObjs *objs) {
-//   //nr, ng, nb, r, g, b
-//   ASSERT( get_largest_abs_diff(10, 20, 30, 5, 15, 25) == 5 ); //nr
-//   ASSERT( get_largest_abs_diff(10, 20, 30, 15, 5, 25) == 15 ); //ng
-//   ASSERT( get_largest_abs_diff(10, 20, 30, 15, 25, 5) == 25 ); //nb
-//   //tie all same
-//   ASSERT( get_largest_abs_diff(10, 20, 30, 10, 20, 30) == 0 ); //all same
-//   //tie nr/ng
-//   ASSERT( get_largest_abs_diff(10, 20, 30, 5, 15, 30) == 5 ); //nr
-//   //tie nr/nb
-//   ASSERT( get_largest_abs_diff(10, 20, 30, 5, 20, 25) == 5 ); //nr
-//   //tie ng/nb
-//   ASSERT( get_largest_abs_diff(10, 20, 30, 10, 5, 25) == 15 ); //ng   
-//   //negative diff
-//   ASSERT( get_largest_abs_diff(5, 15, 25, 10, 20, 30) == -5 ); //nr
-//   ASSERT( get_largest_abs_diff(15, 5, 25, 10, 20, 30) == -15 ); //ng
-//   ASSERT( get_largest_abs_diff(25, 15, 5, 10, 20, 30)  == -25 ); //nb
   
-// }
+
+void test_get_largest_abs_diff(TestObjs *objs) {
+  //nr, ng, nb, r, g, b
+  ASSERT( get_largest_abs_diff(10, 20, 30, 5, 15, 25) == 5 ); //nr
+  ASSERT( get_largest_abs_diff(10, 20, 30, 15, 5, 25) == 15 ); //ng
+  ASSERT( get_largest_abs_diff(10, 20, 30, 15, 25, 5) == 25 ); //nb
+  //tie all same
+  ASSERT( get_largest_abs_diff(10, 20, 30, 10, 20, 30) == 0 ); //all same
+  //tie nr/ng
+  ASSERT( get_largest_abs_diff(10, 20, 30, 5, 15, 30) == 5 ); //nr
+  //tie nr/nb
+  ASSERT( get_largest_abs_diff(10, 20, 30, 5, 20, 25) == 5 ); //nr
+  //tie ng/nb
+  ASSERT( get_largest_abs_diff(10, 20, 30, 10, 5, 25) == 15 ); //ng   
+  //negative diff
+  ASSERT( get_largest_abs_diff(5, 15, 25, 10, 20, 30) == -5 ); //nr
+  ASSERT( get_largest_abs_diff(15, 5, 25, 10, 20, 30) == -15 ); //ng
+  ASSERT( get_largest_abs_diff(25, 15, 5, 10, 20, 30)  == -25 ); //nb
+  
+}
