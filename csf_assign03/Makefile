@@ -7,7 +7,7 @@ OBJS = $(SRCS:.cpp=.o)
 
 # When submitting to Gradescope, submit all .cpp and .h files,
 # as well as README.txt
-FILES_TO_SUBMIT = $(shell ls *.cpp *.h README.txt 2> /dev/null)
+FILES_TO_SUBMIT = $(shell ls *.cpp *.h Makefile README.txt 2> /dev/null)
 
 # Rule for compiling .cpp to .o
 %.o : %.cpp
@@ -15,7 +15,7 @@ FILES_TO_SUBMIT = $(shell ls *.cpp *.h README.txt 2> /dev/null)
 
 # Executable target
 csim : $(OBJS)
-	$(CXX) -o $@ $+
+	$(CXX) $(CXXFLAGS) -o $@ $+
 
 # Target to create a solution.zip file you can upload to Gradescope
 .PHONY: solution.zip
@@ -31,5 +31,6 @@ depend.mak :
 
 clean :
 	rm -f csim *.o
+	rm -f depend.mak
 
 include depend.mak
