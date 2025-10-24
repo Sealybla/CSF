@@ -115,12 +115,13 @@ int main( int argc, char **argv ) {
     int s = log2(num_set);
     int set_index = (address_str >> b) & ((1<<s) -1);
     int tag = address_str >> (b + s);
-
+    cout<<tag; 
     //check if cache contains block (hit)
     bool hit = false;
     for (CacheBlock &block : cache[set_index]) {
       if (block.valid && block.tag == tag) {
         //hit = true
+        cout<<"hit";
         hit = true;
         if (operation == 'l') {
           load_hits++;
@@ -156,6 +157,7 @@ int main( int argc, char **argv ) {
         new_block.load_time = total_cycles;
         if (cache[set_index].size() < num_block) {
           cache[set_index].push_back(new_block); //space available in set
+          total_cycles += 1; //loading to cache takes 1 cycle
         } else { //evict a block based on eviction policy
           if (eviction_policy == "lru") {
             lru(set_index, cache, num_block, total_cycles, new_block, pcycles_per_block);
@@ -177,6 +179,7 @@ int main( int argc, char **argv ) {
           new_block.load_time = total_cycles;
           if (cache[set_index].size() < num_block) { //space available in set
             cache[set_index].push_back(new_block);
+            total_cycles += 1; //loading to cache takes 1 cycle
             // perform the store that caused this miss: account cycles and mark dirty if write-back
             if (write_policy == "write-through") {// write-through: write goes to memory as well
               total_cycles += pcycles_per_block;
@@ -204,7 +207,6 @@ int main( int argc, char **argv ) {
           }
         } else { //no write allocate- cache is not modified 
           total_cycles += pcycles_per_block; //writes to main memory 
-          total_cycles += 1; //store takes 1 cycle
         }
       }
 
