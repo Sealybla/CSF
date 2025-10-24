@@ -136,9 +136,20 @@ int main( int argc, char **argv ) {
           //evict a block based on eviction policy
           int evict_index = 0;
           if (eviction_policy == "lru") {
-             
+             vector<CacheBlock> all_blocks = cache[set_index]; 
+             //finding min total_cycles (most nonused)
+             int min = total_cycles; 
+             int min_idx = 0; 
+             for (int i = 0; i < num_block ; i++){
+              CacheBlock block = all_blocks[i]; 
+              if (block -> last_used < min) {
+                min = block -> last_used;
+                min_idx = i; 
+              }
+             }
+             all_blocks[min] = new_block; 
           }
-          else if (eviction_policy == "fifo") {}
+          else if (eviction_policy == "fifo") {//for next time}
           }
         }
     }
