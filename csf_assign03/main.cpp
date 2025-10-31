@@ -257,6 +257,11 @@ int main( int argc, char **argv ) {
   cout<<"Store hits: "<<store_hits<<endl;
   cout<<"Store misses: "<<store_misses<<endl;
   cout<<"Total cycles: "<<total_cycles<<endl;
+  cout<<"num set/num block/num byte/write-allocate policy/write policy/eviction policy: "<<num_set<<"/"<<num_block<<"/"<<num_byte<<"/"<<write_allocate_policy<<"/"<<write_policy<<"/"<<eviction_policy<<endl;
+  cout<<"Miss Penalty: "<<pcycles_per_block<<endl;
+  double hit_rate = double(load_hits + store_hits) / double(total_loads + total_stores);
+  cout<<"Hit rate: "<<hit_rate<<endl; 
+  cout<<"Total Cache size: "<< (num_set * num_block * num_byte) <<" bytes"<<endl<<endl;
   return 0;
 }
 

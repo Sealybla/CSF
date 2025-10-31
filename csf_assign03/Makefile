@@ -32,5 +32,6 @@ depend.mak :
 clean :
 	rm -f csim *.o
 	rm -f depend.mak
+	rm -f out_*.txt
 
 include depend.mak
