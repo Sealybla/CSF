@@ -14,10 +14,10 @@ struct CacheBlock {
   int load_time; //for FIFO policy
 };
 
-int lru(int set_index, map<int, vector<CacheBlock>> &cache, int num_block, int &total_cycles, CacheBlock &new_block, int pcycles_per_block) {
+int lru(int set_index, map<int, vector<CacheBlock>> &cache, int num_block, int &total_cycles, CacheBlock &new_block, int pcycles_per_block, int access_time) {
     vector<CacheBlock> &all_blocks = cache[set_index]; 
     //finding min total_cycles (most nonused)
-    int min = total_cycles; 
+    int min = all_blocks[0].last_used; 
     int min_idx = 0; 
     for (int i = 0; i < (int)num_block ; i++){
       CacheBlock block = all_blocks[i]; 
@@ -30,7 +30,31 @@ int lru(int set_index, map<int, vector<CacheBlock>> &cache, int num_block, int &
       //write back to memory before being replaced
       total_cycles += pcycles_per_block; 
     }
-    total_cycles ++; //loading to cache takes 1 cycle
+   //loading to cache takes 1 cycle
+    new_block.last_used = access_time;
+    all_blocks[min_idx] = new_block; 
+    return min_idx; 
+}
+
+//same as the lru 
+int fifo(int set_index, map<int, vector<CacheBlock>> &cache, int num_block, int &total_cycles, CacheBlock &new_block, int pcycles_per_block, int access_time) {
+    vector<CacheBlock> &all_blocks = cache[set_index]; 
+    //finding min total_cycles (most nonused)
+    int min = all_blocks[0].last_used; 
+    int min_idx = 0; 
+    for (int i = 0; i < (int)num_block ; i++){
+      CacheBlock block = all_blocks[i]; 
+      if (block.last_used < min) {
+        min = block.last_used;
+        min_idx = i; 
+      }
+    }
+    if (all_blocks[min_idx].dirty){
+      //write back to memory before being replaced
+      total_cycles += pcycles_per_block; 
+    }
+   //loading to cache takes 1 cycle
+    new_block.last_used = access_time;
     all_blocks[min_idx] = new_block; 
     return min_idx; 
 }
@@ -73,6 +97,10 @@ int main( int argc, char **argv ) {
     std::cerr << "Error: Write policy must be either 'write-through' or 'write-back'." << std::endl;
     return 1;
   }
+  if (write_policy == "write-back" && write_allocate_policy == "no-write-allocate") {
+    std::cerr << "Error: policy cannot be both 'no-write-allocate' and 'write-back'." << std::endl;
+    return 1;
+  }
   string eviction_policy = argv[6];
   if (eviction_policy != "lru" && eviction_policy != "fifo") {
     cerr << "Error: Eviction policy must be either 'lru' or 'fifo'." << endl;
@@ -89,6 +117,7 @@ int main( int argc, char **argv ) {
   int store_hits = 0;
   int store_misses = 0;
   int total_cycles = 0;
+  int access_time = 0;
   //simulate cache behavior based on parameters
   map<int, vector<CacheBlock>> cache; //map of set index to vector of cache blocks
   
@@ -97,10 +126,11 @@ int main( int argc, char **argv ) {
   unsigned int address_str;
   int bytes;
   int block_size = num_byte;
-  int pcycles_per_block = 100 * block_size/4; 
+  int pcycles_per_block = 100 * block_size/ 4; 
   while (cin>>operation>>std::hex>>address_str>>bytes) {
     //parse line for load/store and address
     //first character is s or l
+    access_time++;
     if (operation != 'l' && operation != 's') {
       cerr << "Error: Invalid operation '" << operation << "'. Expected 'l' or 's'." << endl;
       continue; //skip invalid lines
@@ -115,13 +145,12 @@ int main( int argc, char **argv ) {
     int s = log2(num_set);
     int set_index = (address_str >> b) & ((1<<s) -1);
     int tag = address_str >> (b + s);
-    cout<<tag; 
+
     //check if cache contains block (hit)
     bool hit = false;
     for (CacheBlock &block : cache[set_index]) {
       if (block.valid && block.tag == tag) {
         //hit = true
-        cout<<"hit";
         hit = true;
         if (operation == 'l') {
           load_hits++;
@@ -129,7 +158,7 @@ int main( int argc, char **argv ) {
         } else {
           store_hits++;
           if (write_policy == "write-through") {//write to memory too
-            total_cycles += pcycles_per_block; 
+            total_cycles += 100; 
             total_cycles += 1; //store hit with write-through takes 101 cycles
           } else {
             total_cycles += 1; //store hit with write-back takes 1 cycle
@@ -138,7 +167,7 @@ int main( int argc, char **argv ) {
         }
         //update block metadata based on eviction policy
         if (eviction_policy == "lru") {
-          block.last_used = total_cycles; //update last used time
+          block.last_used = access_time; //update last used time
         }
         break;
       }
@@ -148,22 +177,22 @@ int main( int argc, char **argv ) {
       if (operation == 'l') {
         load_misses ++; 
         total_cycles += pcycles_per_block; //load miss takes 100 cycles to fetch from memory
+        total_cycles += 1;
         //write block into cache
         CacheBlock new_block;
         new_block.tag = tag;
         new_block.valid = true;
         new_block.dirty = false;
-        new_block.last_used = total_cycles;
-        new_block.load_time = total_cycles;
+        new_block.last_used = access_time;
+        new_block.load_time = access_time;
         if (cache[set_index].size() < num_block) {
           cache[set_index].push_back(new_block); //space available in set
-          total_cycles += 1; //loading to cache takes 1 cycle
         } else { //evict a block based on eviction policy
           if (eviction_policy == "lru") {
-            lru(set_index, cache, num_block, total_cycles, new_block, pcycles_per_block);
+            lru(set_index, cache, num_block, total_cycles, new_block, pcycles_per_block, access_time);
           }
           else {//if (eviction_policy == "fifo")
-            cout<<"heyheyhey";
+            fifo(set_index, cache, num_block, total_cycles, new_block, pcycles_per_block, access_time);
           }
         }
       } else {//operation == 's'
@@ -175,14 +204,13 @@ int main( int argc, char **argv ) {
           new_block.tag = tag;
           new_block.valid = true;
           new_block.dirty = false;
-          new_block.last_used = total_cycles;
-          new_block.load_time = total_cycles;
+          new_block.last_used = access_time;
+          new_block.load_time = access_time;
           if (cache[set_index].size() < num_block) { //space available in set
             cache[set_index].push_back(new_block);
-            total_cycles += 1; //loading to cache takes 1 cycle
             // perform the store that caused this miss: account cycles and mark dirty if write-back
             if (write_policy == "write-through") {// write-through: write goes to memory as well
-              total_cycles += pcycles_per_block;
+              total_cycles += 100;
               total_cycles += 1; //store with write-through
             } else {// write-back: mark the newly loaded block dirty and charge the store cost             
               total_cycles += 1;
@@ -192,9 +220,9 @@ int main( int argc, char **argv ) {
             //evict a block based on eviction policy
             if (eviction_policy == "lru") {
               vector<CacheBlock> &all_blocks = cache[set_index];
-              int min_idx = lru(set_index, cache, num_block, total_cycles, new_block, pcycles_per_block);
+              int min_idx = lru(set_index, cache, num_block, total_cycles, new_block, pcycles_per_block, access_time);
               if(write_policy == "write-through") {
-                total_cycles += pcycles_per_block;
+                total_cycles += 100;
                 total_cycles += 1;;  //store with write-through after miss
               } else {
                 total_cycles += 1; //store with write-back after miss
@@ -202,11 +230,20 @@ int main( int argc, char **argv ) {
               }
             }
             else if (eviction_policy == "fifo") {//for next time}
-              cout<<"heyheyhey";
+              vector<CacheBlock> &all_blocks = cache[set_index];
+              int min_idx = fifo(set_index, cache, num_block, total_cycles, new_block, pcycles_per_block, access_time);
+              if(write_policy == "write-through") {
+                total_cycles += 100;
+                total_cycles += 1;;  //store with write-through after miss
+              } else {
+                total_cycles += 1; //store with write-back after miss
+                all_blocks[min_idx].dirty = true; //mark block as dirty
+              }
             }
           }
         } else { //no write allocate- cache is not modified 
-          total_cycles += pcycles_per_block; //writes to main memory 
+          total_cycles += 100; //writes to main memory 
+       
         }
       }
 
