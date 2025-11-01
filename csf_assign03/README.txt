@@ -1,5 +1,6 @@
 TODO: names of team members and their contributions to the project
-
+Wendy - fifo function + debugging together + analysis of the best cache
+Lijia - lru function + debugging together + analysis of the best cache
 TODO (for MS3): best cache report
 
 lru
@@ -9,6 +10,7 @@ lru
         - let n = 256, 512 m = 4, 8
         - set bytes to 16
 
+We used pcycles_per_block as a rough estimate for miss penalty to represent a comparison for miss penalty.
 
 DATA: 
 
@@ -196,3 +198,8 @@ Total Cache size: 65536 bytes
 
 
 
+The above display the data to the experiments that we ran. To find our best cache configuration, we prioritize the metrics in the following order: hit rate, cache size, miss penalty. With this order of prioritization, we find that
+the configuration with the highest hit rate is for num set = 512, num block = 8, num byte = 15, write-allocate, write-through, and lru for gcc.trace. However, just taking hit rate 
+in consideration may not work as well in the average case since the improvement of 0.01 percent would not really make that big of a difference. Instead, we advocate for the configuration 
+with 256/4/16/write-allocate/write-back/lru due to it taking less than a quarter of the cache size with comparable hit rate performance of about 0.96, which should save much more resources and 
+achieve comparable performance.
