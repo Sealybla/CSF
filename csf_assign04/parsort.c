@@ -48,14 +48,14 @@ int main( int argc, char **argv ) {
   // mmap the file data
   int64_t *arr;
   // TODO: mmap the file data
-  arr = mmap( NULL, statbuf.st_size, PROT_READ | PROT_WRITE,
+  arr = mmap( NULL, file_size, PROT_READ | PROT_WRITE,
               MAP_SHARED, fd, 0 );
   close( fd ); 
   if ( arr == MAP_FAILED ) {
     exit(1); 
       // handle mmap error and exit
   }
-  num_elements = sizeof(arr);
+  num_elements =file_size / sizeof(int64_t);
 
   // Sort the data!
   int success;
@@ -67,7 +67,7 @@ int main( int argc, char **argv ) {
 
   // Unmap the file data
   // TODO: unmap the file data
-  munmap( arr, statbuf.st_size);
+  munmap( arr, file_size);
 
   return 0;
 }
