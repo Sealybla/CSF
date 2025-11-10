@@ -21,19 +21,41 @@ int main( int argc, char **argv ) {
     fprintf( stderr, "Usage: parsort <file> <par threshold>\n" );
     exit( 1 );
   }
+  char* filename = argv[1];
 
   int fd;
+  
+  
 
   // open the named file
   // TODO: open the named file
+  fd = open(filename, O_RDWR);
+  if (fd < 0) {
+    exit( 1 );
+  // file couldn't be opened: handle error and exit
+  } 
 
   // determine file size and number of elements
   unsigned long file_size, num_elements;
   // TODO: determine the file size and number of elements
-
+  struct stat statbuf;
+  int rc = fstat( fd, &statbuf );
+  if ( rc != 0 ) {
+    //fstat error
+    exit(1);
+  }
+  file_size = statbuf.st_size;
   // mmap the file data
   int64_t *arr;
   // TODO: mmap the file data
+  arr = mmap( NULL, statbuf.st_size, PROT_READ | PROT_WRITE,
+              MAP_SHARED, fd, 0 );
+  close( fd ); 
+  if ( arr == MAP_FAILED ) {
+    exit(1); 
+      // handle mmap error and exit
+  }
+  num_elements = sizeof(arr);
 
   // Sort the data!
   int success;
@@ -45,6 +67,7 @@ int main( int argc, char **argv ) {
 
   // Unmap the file data
   // TODO: unmap the file data
+  munmap( arr, statbuf.st_size);
 
   return 0;
 }
