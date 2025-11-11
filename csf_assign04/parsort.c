@@ -201,10 +201,68 @@ int quicksort( int64_t *arr, unsigned long start, unsigned long end, unsigned lo
   // Recursively sort the left and right partitions
   int left_success, right_success;
   // TODO: modify this code so that the recursive calls execute in child processes
-  left_success = quicksort( arr, start, mid, par_threshold );
-  right_success = quicksort( arr, mid + 1, end, par_threshold );
+  
 
-  return left_success && right_success;
+  pid_t pid = fork();
+  if (pid == 0 ){
+    left_success = quicksort( arr, start, mid, par_threshold );
+    exit(left_success? 0 : 1);
+  } else if (pid < 0) {
+    exit(1);
+    //failed fork
+  } 
+
+  pid_t pid2 = fork();
+  if (pid2 == 0 ){
+    right_success = quicksort( arr, mid + 1, end, par_threshold );
+    exit(right_success? 0 : 1);
+  } else if (pid2 < 0) {
+    exit(1);
+    //failed fork
+  } 
+  
+  int rc, wstatus;
+  rc = waitpid( pid, &wstatus, 0 );
+  if ( rc < 0 ) {
+    // waitpid failed
+    // ...handle error...
+    return 0;
+  } else {
+    // check status of child
+    if ( !WIFEXITED( wstatus ) ) {
+      // child did not exit normally (e.g., it was terminated by a signal)
+      // ...handle child failure...
+      return 0;
+    } else if ( WEXITSTATUS( wstatus ) != 0 ) {
+      // child exited with a non-zero exit code
+      // ...handle child failure...
+      return 0;
+    } else {
+      // child success
+    }
+  }
+
+  rc = waitpid( pid2, &wstatus, 0 );
+  if ( rc < 0 ) {
+    // waitpid failed
+    // ...handle error...
+    return 0;
+  } else {
+    // check status of child
+    if ( !WIFEXITED( wstatus ) ) {
+      // child did not exit normally (e.g., it was terminated by a signal)
+      // ...handle child failure...
+      return 0;
+    } else if ( WEXITSTATUS( wstatus ) != 0 ) {
+      // child exited with a non-zero exit code
+      // ...handle child failure...
+      return 0;
+    } else {
+      // child success
+    }
+  }
+
+  return 1;
 }
 
 // TODO: define additional helper functions if needed
