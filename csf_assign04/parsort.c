@@ -31,7 +31,9 @@ int main( int argc, char **argv ) {
   // TODO: open the named file
   fd = open(filename, O_RDWR);
   if (fd < 0) {
+    fprintf( stderr, "Error: file open failed\n" );
     exit( 1 );
+    
   // file couldn't be opened: handle error and exit
   } 
 
@@ -42,6 +44,7 @@ int main( int argc, char **argv ) {
   int rc = fstat( fd, &statbuf );
   if ( rc != 0 ) {
     //fstat error
+    fprintf( stderr, "Error: fstat failed\n" );
     exit(1);
   }
   file_size = statbuf.st_size;
@@ -52,6 +55,7 @@ int main( int argc, char **argv ) {
               MAP_SHARED, fd, 0 );
   close( fd ); 
   if ( arr == MAP_FAILED ) {
+    fprintf( stderr, "Error: map failed\n" );
     exit(1); 
       // handle mmap error and exit
   }
@@ -208,7 +212,7 @@ int quicksort( int64_t *arr, unsigned long start, unsigned long end, unsigned lo
     left_success = quicksort( arr, start, mid, par_threshold );
     exit(left_success? 0 : 1);
   } else if (pid < 0) {
-    exit(1);
+    return 0;
     //failed fork
   } 
 
@@ -217,7 +221,7 @@ int quicksort( int64_t *arr, unsigned long start, unsigned long end, unsigned lo
     right_success = quicksort( arr, mid + 1, end, par_threshold );
     exit(right_success? 0 : 1);
   } else if (pid2 < 0) {
-    exit(1);
+    return 0;
     //failed fork
   } 
   
