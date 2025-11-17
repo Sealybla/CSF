@@ -42,15 +42,16 @@ Connection::~Connection() {
 
 bool Connection::is_open() const {
   // TODO: return true if the connection is open
-  if (m_fd != -1) {
-    return true;
-  } else {
-    return false;
-  }
+  return m_fd != -1; 
 }
 
 void Connection::close() {
   // TODO: close the connection if it is open
+  if (is_open()) {
+    ::close(m_fd);
+    m_fd = -1; 
+    m_last_result = SUCCESS;
+  }
   
 }
 
@@ -58,6 +59,14 @@ bool Connection::send(const Message &msg) {
   // TODO: send a message
   // return true if successful, false if not
   // make sure that m_last_result is set appropriately
+  std::string encoded_msg = msg.encode();
+  ssize_t n = rio_writen(m_fd, encoded_msg.c_str(), encoded_msg.size());
+  if (n != (ssize_t)encoded_msg.size()) {
+    m_last_result = ERROR;
+    return false;
+  }
+  m_last_result = SUCCESS;
+  return true;
 
 }
 
@@ -65,4 +74,18 @@ bool Connection::receive(Message &msg) {
   // TODO: receive a message, storing its tag and data in msg
   // return true if successful, false if not
   // make sure that m_last_result is set appropriately
+  char buf[Message::MAX_LEN + 2]; //+2 for newline
+  ssize_t n = rio_readlineb(&m_fdbuf, buf, sizeof(buf));
+  if (n <= 0) {
+    m_last_result = EOF_OR_ERROR;
+    return false;
+  }
+  bool ok = msg.decode(std::string(buf, n));
+  if (!ok) {
+    m_last_result = ERROR;
+    return false;
+  }
+  m_last_result = SUCCESS;
+  return true;
+
 }

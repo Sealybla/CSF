@@ -20,6 +20,27 @@ struct Message {
     : tag(tag), data(data) { }
 
   // TODO: you could add helper functions
+  std::string encode() const {
+    std::string encoded = tag + ":" + data + "\n";
+    if (encoded.size() > MAX_LEN) {
+      encoded = encoded.substr(0, MAX_LEN - 1) + "\n"; //indicate error
+    }
+    return encoded; 
+  }
+
+  bool decode(const std::string &line) {
+    std::string str = line; 
+    if (!str.empty() && str.back() == '\n') {
+      str.pop_back(); //remove trailing newline
+    }
+    size_t colon_pos = str.find(':');
+    if (colon_pos == std::string::npos) {
+      return false; //invalid message format
+    }
+    tag = str.substr(0, colon_pos);
+    data = str.substr(colon_pos + 1);
+    return true;
+  }
 };
 
 // standard message tags (note that you don't need to worry about
