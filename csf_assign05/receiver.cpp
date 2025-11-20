@@ -27,7 +27,7 @@ int main(int argc, char **argv) {
     std::cerr << "Connection error: " << e.what() << "\n";
     return 1;
   }
-
+  //check if successfully opened
   if (!conn.is_open()) {
     std::cerr << "Failed to connect to server\n";
     return 1;
