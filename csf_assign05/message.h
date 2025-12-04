@@ -23,7 +23,7 @@ struct Message {
   std::string encode() const {
     std::string encoded = tag + ":" + data + "\n";
     if (encoded.size() > MAX_LEN) {
-      encoded = encoded.substr(0, MAX_LEN - 1) + "\n"; //indicate error
+      encoded = encoded.substr(0, MAX_LEN - 1) + "\n"; //indicate error COME BACK LATER
     }
     return encoded; 
   }

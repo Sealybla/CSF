@@ -23,7 +23,7 @@ void Connection::connect(const std::string &hostname, int port) {
   m_fd = open_clientfd(hostname.c_str(), std::to_string(port).c_str());
   if (m_fd < 0) {
     m_last_result = EOF_OR_ERROR;
-    throw std::runtime_error("Failed to connect to server");
+    m_fd = -1; 
     return;
   }
   // TODO: call rio_readinitb to initialize the rio_t object
@@ -42,7 +42,7 @@ Connection::~Connection() {
 
 bool Connection::is_open() const {
   // TODO: return true if the connection is open
-  return m_fd != -1; 
+  return m_fd > -1; 
 }
 
 void Connection::close() {
@@ -62,7 +62,7 @@ bool Connection::send(const Message &msg) {
   std::string encoded_msg = msg.encode();
   ssize_t n = rio_writen(m_fd, encoded_msg.c_str(), encoded_msg.size());
   if (n != (ssize_t)encoded_msg.size()) {
-    m_last_result = ERROR;
+    m_last_result = EOF_OR_ERROR;
     return false;
   }
   m_last_result = SUCCESS;
@@ -82,8 +82,11 @@ bool Connection::receive(Message &msg) {
   }
   bool ok = msg.decode(std::string(buf, n));
   if (!ok) {
-    m_last_result = ERROR;
-    return false;
+    // Received a line but it failed to decode as a valid Message.
+    // Report INVALID_MSG so the server can respond with an error
+    // without tearing down the connection.
+    m_last_result = INVALID_MSG;
+    return true;
   }
   m_last_result = SUCCESS;
   return true;

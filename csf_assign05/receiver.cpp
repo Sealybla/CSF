@@ -21,12 +21,8 @@ int main(int argc, char **argv) {
   Connection conn;
 
   // TODO: connect to server
-  try {
-    conn.connect(server_hostname, server_port);
-  } catch (const std::runtime_error &e) {
-    std::cerr << "Connection error: " << e.what() << "\n";
-    return 1;
-  }
+  conn.connect(server_hostname, server_port);
+  
   //check if successfully opened
   if (!conn.is_open()) {
     std::cerr << "Failed to connect to server\n";
