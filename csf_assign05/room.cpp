@@ -32,20 +32,14 @@ void Room::remove_member(User *user) {
 }
 
 void Room::broadcast_message(const std::string &sender_username, const std::string &message_text) {
-  // Acquire the lock to ensure thread-safe iteration over the member set
-  // This prevents join/leave operations from occurring during broadcast
+  // Hold the room lock while enqueuing messages to ensure that
+  // a member will not be removed and deleted while we are notifying
+  // them. This is a conservative approach that trades some
+  // concurrency for correctness and simplicity.
   Guard guard(lock);
-  
-  // Send a message to every receiver User in the room
-  for (UserSet::iterator it = members.begin(); it != members.end(); ++it) {
-    User *user = *it;
-    // Create a heap-allocated message to send to the receiver
-    // Format: "room_name:sender_username:message_text"
+  for (User *user : members) {
+    // Create a heap-allocated message for this recipient and enqueue it.
     Message *msg = new Message(TAG_DELIVERY, room_name + ":" + sender_username + ":" + message_text);
-    // Enqueue the message to the user's message queue
-    // NOTE: enqueue() has its own synchronization for the queue
     user->mqueue.enqueue(msg);
   }
-  
-  // Lock is released here (Guard goes out of scope)
 }

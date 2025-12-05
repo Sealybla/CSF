@@ -76,18 +76,13 @@ int main(int argc, char **argv) {
     }
     if(delivery_msg.tag == TAG_DELIVERY) {
       std::string payload = delivery_msg.data;
-      // Format: "room:sender:message"
-      size_t first_colon = payload.find(':');
-      if (first_colon == std::string::npos) continue;
-      size_t second_colon = payload.find(':', first_colon + 1);
-      if (second_colon == std::string::npos) continue;
-
-      std::string msg_room = payload.substr(0, first_colon);
-      if (msg_room != room_name) continue; // ignore messages for other rooms
-
-      std::string sender = payload.substr(first_colon + 1, second_colon - first_colon - 1);
-      std::string message = payload.substr(second_colon + 1);
-
+      // Format: "sender:message"
+      size_t colon_pos = payload.find(':');
+      if(colon_pos == std::string::npos) continue;
+      
+      std::string sender = payload.substr(0, colon_pos);
+      std::string message = payload.substr(colon_pos + 1);
+      
       std::cout << sender << ": " << message << "\n";
     }
   }

@@ -26,9 +26,6 @@ struct ClientContext {
     : conn(conn), server(server) { }
 };
 
-// TODO: add any additional data types that might be helpful
-//       for implementing the Server member functions
-
 ////////////////////////////////////////////////////////////////////////
 // Client thread functions
 ////////////////////////////////////////////////////////////////////////
@@ -36,9 +33,9 @@ struct ClientContext {
 namespace {
 
 // Helper function to handle a sender client
-void chat_with_sender(Connection *conn, Server *server, User *user) {
+void chat_with_sender(Connection *conn, Server *server, const std::string &username) {
   Message msg;
-  std::string current_room = ""; // Track which room the sender is currently in
+  Room *current_room = nullptr; // Track which room the sender is currently in
   
   while (true) {
     // Receive a message from the sender
@@ -56,27 +53,22 @@ void chat_with_sender(Connection *conn, Server *server, User *user) {
     
     if (msg.tag == TAG_JOIN) {
       // Sender is joining a room
-      Room *room = server->find_or_create_room(msg.data);
-      room->add_member(user);
-      current_room = msg.data;
-      // Send OK response
+      current_room = server->find_or_create_room(msg.data);
+      // Send OK response (sender does NOT get added to room member list)
       if (!conn->send(Message(TAG_OK, ""))) {
         // Failed to send response - terminate
-        room->remove_member(user);
         break;
       }
     } else if (msg.tag == TAG_LEAVE) {
       // Sender is leaving a room
-      if (current_room.empty()) {
+      if (!current_room) {
         // Sender not in any room
         if (!conn->send(Message(TAG_ERR, "Not in room"))) {
           break;
         }
         continue;
       }
-      Room *room = server->find_or_create_room(current_room);
-      room->remove_member(user);
-      current_room = "";
+      current_room = nullptr;
       // Send OK response
       if (!conn->send(Message(TAG_OK, ""))) {
         // Failed to send response - terminate
@@ -84,26 +76,21 @@ void chat_with_sender(Connection *conn, Server *server, User *user) {
       }
     } else if (msg.tag == TAG_SENDALL) {
       // Sender is broadcasting a message to all receivers in their current room
-      if (current_room.empty()) {
+      if (!current_room) {
         // Sender not in any room - cannot broadcast
         if (!conn->send(Message(TAG_ERR, "Not in room"))) {
           break;
         }
         continue;
       }
-      Room *room = server->find_or_create_room(current_room);
-      room->broadcast_message(user->username, msg.data);
+      current_room->broadcast_message(username, msg.data);
       // Send OK response
       if (!conn->send(Message(TAG_OK, ""))) {
         // Failed to send response - terminate
         break;
       }
     } else if (msg.tag == TAG_QUIT) {
-      // Sender is quitting - clean up room membership
-      if (!current_room.empty()) {
-        Room *room = server->find_or_create_room(current_room);
-        room->remove_member(user);
-      }
+      // Sender is quitting
       if (!conn->send(Message(TAG_OK, ""))) {
         // Failed to send response - but still break to exit
         break;
@@ -120,23 +107,63 @@ void chat_with_sender(Connection *conn, Server *server, User *user) {
 }
 
 // Helper function to handle a receiver client
-void chat_with_receiver(Connection *conn, Server *server, User *user) {
-  while (true) {
-    // Check if there are any pending messages for this user
-    Message *pending = user->mqueue.dequeue();
-    if (pending != nullptr) {
-      // Deliver pending message
-      if (!conn->send(*pending)) {
-        // Failed to send message - terminate and clean up
-        delete pending;
-        break;
+void chat_with_receiver(Connection *conn, Server *server, const std::string &username) {
+  Message msg;
+  
+  // First, wait for TAG_JOIN to determine which room the receiver wants to join
+  Room *room = nullptr;
+  while (room == nullptr) {
+    if (!conn->receive(msg)) {
+      // Connection lost or error receiving message
+      return;
+    }
+    if (conn->get_last_result() == Connection::INVALID_MSG) {
+      // send protocol error but do not disconnect
+      if (!conn->send(Message(TAG_ERR, "Invalid message format"))) {
+        return; // can't respond, treat as disconnect
       }
-      delete pending;
+      continue;
+    }
+    
+    if (msg.tag == TAG_JOIN) {
+      // Receiver is joining a room
+      room = server->find_or_create_room(msg.data);
+      
+      // Create User and add to room
+      User *user = new User(username);
+      room->add_member(user);
+      
+      // Send OK response
+      if (!conn->send(Message(TAG_OK, ""))) {
+        // Failed to send response - remove from room and terminate
+        room->remove_member(user);
+        delete user;
+        return;
+      }
+      
+      // Now poll for messages to deliver
+      while (true) {
+        Message *pending = user->mqueue.dequeue();
+        if (pending != nullptr) {
+          // Deliver pending message
+          if (!conn->send(*pending)) {
+            // Failed to send message - terminate and clean up
+            delete pending;
+            room->remove_member(user);
+            delete user;
+            return;
+          }
+          delete pending;
+        } else {
+          // No message available, poll again
+          // (dequeue timeout returns nullptr after 1 second)
+          // Just loop back to dequeue again
+        }
+      }
     } else {
-      // Send empty message to indicate no messages available
-      if (!conn->send(Message(TAG_EMPTY, ""))) {
-        // Failed to send empty message - terminate
-        break;
+      // Receiver sent something other than JOIN - error
+      if (!conn->send(Message(TAG_ERR, "Expected JOIN message"))) {
+        return;
       }
     }
   }
@@ -152,57 +179,43 @@ void *worker(void *arg) {
   
   // Read login message (should be tagged either with TAG_SLOGIN or TAG_RLOGIN)
   Message login_msg;
-  // keep trying until we get a valid login or the connection dies
-  while (true) {
-    if (!conn->receive(login_msg)) {
-      // Failed to receive login message (EOF/error)
-      conn->close();
-      delete conn;
-      delete ctx;
-      return nullptr;
-    }
-    if (conn->get_last_result() == Connection::INVALID_MSG) {
-      // protocol error: notify client and keep waiting for a proper login
-      if (!conn->send(Message(TAG_ERR, "Invalid login message format"))) {
-        // couldn't reply; treat as disconnected
-        conn->close();
-        delete conn;
-        delete ctx;
-        return nullptr;
-      }
-      continue;
-    }
-    break;
+  if (!conn->receive(login_msg)) {
+    // Failed to receive login message (EOF/error)
+    conn->close();
+    delete conn;
+    delete ctx;
+    return nullptr;
+  }
+  if (conn->get_last_result() == Connection::INVALID_MSG) {
+    // protocol error on login
+    conn->send(Message(TAG_ERR, "Invalid login message format"));
+    conn->close();
+    delete conn;
+    delete ctx;
+    return nullptr;
   }
 
-  // Create a User object to track pending messages
-  User *user = nullptr;
-  bool is_sender = false;
-  
+  // Check login tag and proceed
   if (login_msg.tag == TAG_SLOGIN) {
     // Client is logging in as a sender
-    is_sender = true;
-    user = new User(login_msg.data);
     if (!conn->send(Message(TAG_OK, ""))) {
       // Failed to send login response - clean up and exit
-      delete user;
       conn->close();
       delete conn;
       delete ctx;
       return nullptr;
     }
+    chat_with_sender(conn, server, login_msg.data);
   } else if (login_msg.tag == TAG_RLOGIN) {
     // Client is logging in as a receiver
-    is_sender = false;
-    user = new User(login_msg.data);
     if (!conn->send(Message(TAG_OK, ""))) {
       // Failed to send login response - clean up and exit
-      delete user;
       conn->close();
       delete conn;
       delete ctx;
       return nullptr;
     }
+    chat_with_receiver(conn, server, login_msg.data);
   } else {
     // Invalid login tag - notify client and close
     conn->send(Message(TAG_ERR, "Invalid login message"));
@@ -212,18 +225,9 @@ void *worker(void *arg) {
     return nullptr;
   }
   
-  // Depending on whether the client logged in as a sender or receiver,
-  // communicate with the client
-  if (is_sender) {
-    chat_with_sender(conn, server, user);
-  } else {
-    chat_with_receiver(conn, server, user);
-  }
-  
   // Clean up
   conn->close();
   delete conn;
-  delete user;
   delete ctx;
 
   return nullptr;
@@ -260,7 +264,9 @@ void Server::handle_client_requests() {
   // Infinite loop calling accept and starting a new pthread for each connected client
   while (true) {
     // Accept a client connection
-    int clientfd = Accept(m_ssock, nullptr, nullptr);
+    struct sockaddr_storage clientaddr;
+    socklen_t clientlen = sizeof(clientaddr);
+    int clientfd = Accept(m_ssock, (struct sockaddr *)&clientaddr, &clientlen);
     if (clientfd < 0) {
       continue; // Skip on error
     }
@@ -285,7 +291,7 @@ Room *Server::find_or_create_room(const std::string &room_name) {
   // Lock the mutex to ensure thread-safe access to the room map
   Guard guard(m_lock);
   
-  RoomMap::iterator it = m_rooms.find(room_name);
+  auto it = m_rooms.find(room_name);
   if (it != m_rooms.end()) {
     return it->second;
   }
