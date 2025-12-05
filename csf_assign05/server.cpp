@@ -38,8 +38,7 @@ namespace {
 // Helper function to handle a sender client
 void chat_with_sender(Connection *conn, Server *server, User *user) {
   Message msg;
-  // track rooms this sender has joined
-  std::set<std::string> joined_rooms;
+  std::string current_room = ""; // Track which room the sender is currently in
   
   while (true) {
     // Receive a message from the sender
@@ -58,51 +57,53 @@ void chat_with_sender(Connection *conn, Server *server, User *user) {
     if (msg.tag == TAG_JOIN) {
       // Sender is joining a room
       Room *room = server->find_or_create_room(msg.data);
-      joined_rooms.insert(msg.data);
+      room->add_member(user);
+      current_room = msg.data;
       // Send OK response
       if (!conn->send(Message(TAG_OK, ""))) {
         // Failed to send response - terminate
+        room->remove_member(user);
         break;
       }
     } else if (msg.tag == TAG_LEAVE) {
       // Sender is leaving a room
-      if (joined_rooms.find(msg.data) == joined_rooms.end()) {
-        // Sender not in that room
+      if (current_room.empty()) {
+        // Sender not in any room
         if (!conn->send(Message(TAG_ERR, "Not in room"))) {
           break;
         }
         continue;
       }
-      joined_rooms.erase(msg.data);
+      Room *room = server->find_or_create_room(current_room);
+      room->remove_member(user);
+      current_room = "";
       // Send OK response
       if (!conn->send(Message(TAG_OK, ""))) {
         // Failed to send response - terminate
         break;
       }
     } else if (msg.tag == TAG_SENDALL) {
-      // Sender is broadcasting a message to all receivers in a room
-      // Parse the message: room_name:message_text
-      size_t colon_pos = msg.data.find(':');
-      if (colon_pos != std::string::npos) {
-        std::string room_name = msg.data.substr(0, colon_pos);
-        std::string message_text = msg.data.substr(colon_pos + 1);
-        // Ensure sender has joined the room before sending
-        if (joined_rooms.find(room_name) == joined_rooms.end()) {
-          if (!conn->send(Message(TAG_ERR, "Sender not in room"))) {
-            break;
-          }
-          continue;
+      // Sender is broadcasting a message to all receivers in their current room
+      if (current_room.empty()) {
+        // Sender not in any room - cannot broadcast
+        if (!conn->send(Message(TAG_ERR, "Not in room"))) {
+          break;
         }
-        Room *room = server->find_or_create_room(room_name);
-        room->broadcast_message(user->username, message_text);
+        continue;
       }
+      Room *room = server->find_or_create_room(current_room);
+      room->broadcast_message(user->username, msg.data);
       // Send OK response
       if (!conn->send(Message(TAG_OK, ""))) {
         // Failed to send response - terminate
         break;
       }
     } else if (msg.tag == TAG_QUIT) {
-      // Sender is quitting
+      // Sender is quitting - clean up room membership
+      if (!current_room.empty()) {
+        Room *room = server->find_or_create_room(current_room);
+        room->remove_member(user);
+      }
       if (!conn->send(Message(TAG_OK, ""))) {
         // Failed to send response - but still break to exit
         break;
@@ -120,8 +121,6 @@ void chat_with_sender(Connection *conn, Server *server, User *user) {
 
 // Helper function to handle a receiver client
 void chat_with_receiver(Connection *conn, Server *server, User *user) {
-  Message msg;
-  
   while (true) {
     // Check if there are any pending messages for this user
     Message *pending = user->mqueue.dequeue();
@@ -137,53 +136,6 @@ void chat_with_receiver(Connection *conn, Server *server, User *user) {
       // Send empty message to indicate no messages available
       if (!conn->send(Message(TAG_EMPTY, ""))) {
         // Failed to send empty message - terminate
-        break;
-      }
-    }
-    
-    // Receive a message from the receiver (should be join/leave/quit)
-    if (!conn->receive(msg)) {
-      // Connection lost or error receiving message - terminate
-      break;
-    }
-    if (conn->get_last_result() == Connection::INVALID_MSG) {
-      if (!conn->send(Message(TAG_ERR, "Invalid message format"))) {
-        break;
-      }
-      continue;
-    }
-    
-    if (msg.tag == TAG_JOIN) {
-      // Receiver is joining a room
-      Room *room = server->find_or_create_room(msg.data);
-      room->add_member(user);
-      // Send OK response
-      if (!conn->send(Message(TAG_OK, ""))) {
-        // Failed to send response - terminate
-        room->remove_member(user);
-        break;
-      }
-    } else if (msg.tag == TAG_LEAVE) {
-      // Receiver is leaving a room
-      // msg.data should contain the room name
-      Room *room = server->find_or_create_room(msg.data);
-      room->remove_member(user);
-      // Send OK response
-      if (!conn->send(Message(TAG_OK, ""))) {
-        // Failed to send response - terminate
-        break;
-      }
-    } else if (msg.tag == TAG_QUIT) {
-      // Receiver is quitting
-      if (!conn->send(Message(TAG_OK, ""))) {
-        // Failed to send response - but still exit
-        break;
-      }
-      break;
-    } else {
-      // Unknown message tag - send error response
-      if (!conn->send(Message(TAG_ERR, "Unknown message type"))) {
-        // Failed to send error response - terminate
         break;
       }
     }

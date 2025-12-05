@@ -40,8 +40,8 @@ void Room::broadcast_message(const std::string &sender_username, const std::stri
   for (UserSet::iterator it = members.begin(); it != members.end(); ++it) {
     User *user = *it;
     // Create a heap-allocated message to send to the receiver
-    // Format: "sender_username:message_text"
-    Message *msg = new Message(TAG_DELIVERY, sender_username + ":" + message_text);
+    // Format: "room_name:sender_username:message_text"
+    Message *msg = new Message(TAG_DELIVERY, room_name + ":" + sender_username + ":" + message_text);
     // Enqueue the message to the user's message queue
     // NOTE: enqueue() has its own synchronization for the queue
     user->mqueue.enqueue(msg);
